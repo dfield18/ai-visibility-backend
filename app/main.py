@@ -1,0 +1,94 @@
+"""FastAPI application entrypoint."""
+
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+
+from app.api import router
+from app.core.config import settings
+from app.core.database import AsyncSessionLocal
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan handler for startup and shutdown events.
+
+    Performs database connection test on startup and cleanup on shutdown.
+
+    Args:
+        app: FastAPI application instance.
+
+    Yields:
+        None: Control passes to the application.
+    """
+    # Startup
+    print("Starting AI Visibility Backend...")
+    print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Debug mode: {settings.DEBUG}")
+
+    # Test database connection
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+            print("Database connection successful!")
+    except Exception as e:
+        print(f"Warning: Database connection failed: {e}")
+        print("The application will start but database operations will fail.")
+
+    yield
+
+    # Shutdown
+    print("Shutting down AI Visibility Backend...")
+
+
+def create_application() -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Returns:
+        FastAPI: Configured application instance.
+    """
+    app = FastAPI(
+        title="AI Visibility Backend",
+        description="Backend API for AI Brand Visibility Tracker",
+        version="0.1.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+        lifespan=lifespan,
+    )
+
+    # Configure CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Include API routes
+    app.include_router(router, prefix="/api/v1")
+
+    # Root endpoint
+    @app.get("/")
+    async def root() -> dict:
+        """Root endpoint with API information.
+
+        Returns:
+            dict: Basic API information and links.
+        """
+        return {
+            "name": "AI Visibility Backend",
+            "version": "0.1.0",
+            "docs": "/docs",
+            "health": "/api/v1/health",
+        }
+
+    return app
+
+
+# Create application instance
+app = create_application()
