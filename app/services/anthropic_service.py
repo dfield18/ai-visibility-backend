@@ -29,7 +29,7 @@ class AnthropicResponse:
         text: str,
         tokens_input: int,
         tokens_output: int,
-        model: str = "claude-3-5-sonnet-20241022",
+        model: str = "claude-sonnet-4-20250514",
     ):
         self.text = text
         self.tokens_input = tokens_input
@@ -47,7 +47,7 @@ class AnthropicService:
     """
 
     BASE_URL = "https://api.anthropic.com/v1"
-    MODEL = "claude-3-5-sonnet-20241022"
+    MODEL = "claude-sonnet-4-20250514"
     API_VERSION = "2023-06-01"
 
     def __init__(self):
@@ -100,6 +100,8 @@ class AnthropicService:
                 headers=self._get_headers(),
                 json=payload,
             )
+            if not response.is_success:
+                print(f"[Anthropic] Error response: {response.status_code} - {response.text}")
             response.raise_for_status()
             data = response.json()
 
