@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.database import engine
 from app.models.result import Result
 from app.models.run import Run
+from app.services.anthropic_service import AnthropicService
 from app.services.gemini_service import GeminiService
 from app.services.openai_service import OpenAIService
 from app.services.result_processor import (
@@ -34,6 +35,7 @@ class RunExecutor:
         """Initialize the executor with API services."""
         self.openai_service: Optional[OpenAIService] = None
         self.gemini_service: Optional[GeminiService] = None
+        self.anthropic_service: Optional[AnthropicService] = None
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
 
         # Initialize services if API keys are available
@@ -46,6 +48,11 @@ class RunExecutor:
             self.gemini_service = GeminiService()
         except ValueError as e:
             print(f"Gemini service not available: {e}")
+
+        try:
+            self.anthropic_service = AnthropicService()
+        except ValueError as e:
+            print(f"Anthropic service not available: {e}")
 
     def _get_session_factory(self) -> async_sessionmaker:
         """Create a new session factory."""
@@ -211,6 +218,17 @@ class RunExecutor:
 
             elif provider == "gemini" and self.gemini_service:
                 response = await self.gemini_service.generate_content(
+                    prompt=prompt,
+                    temperature=temperature,
+                )
+                result.response_text = response.text
+                result.model = response.model
+                result.tokens = response.tokens_input + response.tokens_output
+                result.cost = response.cost
+                cost = response.cost
+
+            elif provider == "anthropic" and self.anthropic_service:
+                response = await self.anthropic_service.generate_content(
                     prompt=prompt,
                     temperature=temperature,
                 )

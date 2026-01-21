@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
