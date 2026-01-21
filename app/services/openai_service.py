@@ -119,26 +119,38 @@ class OpenAIService:
             model=self.MODEL,
         )
 
-    async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> List[str]:
-        """Generate suggested prompts for a brand.
+
+
+
+
+async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> List[str]:
+        """Generate category-based prompts for a brand.
 
         Args:
             brand: The brand name.
             industry: Optional industry context.
 
         Returns:
-            List of suggested search queries.
+            List of suggested search queries (category-based, not brand-specific).
         """
         system_prompt = (
-            "You are a market research assistant. "
-            "Generate consumer search queries and competitor analysis."
+            "You are a market research assistant helping brands understand their "
+            "visibility in AI-generated recommendations."
         )
 
         industry_context = f" in the {industry} industry" if industry else ""
         user_prompt = (
-            f"Generate 5-7 consumer search queries someone might use when researching "
-            f"{brand}{industry_context} products. Focus on discovery/recommendation queries "
-            f'like "best running shoes" or "top laptops for students". '
+            f"For the brand '{brand}'{industry_context}, identify the main product/service "
+            f"categories they operate in, then generate 6-8 consumer search queries for those categories.\n\n"
+            f"IMPORTANT RULES:\n"
+            f"- Do NOT include the brand name '{brand}' in any search query\n"
+            f"- Queries should be generic category searches like 'best running shoes' NOT 'best Nike shoes'\n"
+            f"- Focus on discovery/recommendation queries consumers naturally ask\n"
+            f"- Include different intents: best overall, specific use cases, comparisons, budget options\n"
+            f"- If the brand spans multiple categories, include queries for each\n\n"
+            f"Examples of GOOD queries: 'best running shoes', 'top marathon training shoes', "
+            f"'most comfortable athletic shoes', 'best wireless headphones'\n"
+            f"Examples of BAD queries: 'best Nike shoes', 'Nike vs Adidas', 'is Nike good'\n\n"
             f"Return as JSON array of strings only, no explanation."
         )
 
@@ -152,6 +164,15 @@ class OpenAIService:
         except Exception as e:
             print(f"OpenAI prompt generation failed: {e}")
             return self._get_fallback_prompts(brand)
+
+
+
+
+
+
+
+
+
 
     async def generate_competitors(self, brand: str, industry: Optional[str] = None) -> List[str]:
         """Generate list of competitors for a brand.
@@ -218,15 +239,74 @@ class OpenAIService:
 
         return []
 
-    def _get_fallback_prompts(self, brand: str) -> List[str]:
+
+
+
+def _get_fallback_prompts(self, brand: str) -> List[str]:
         """Get fallback prompts when API fails."""
-        return [
-            f"best {brand} products",
-            f"top {brand} recommendations",
-            f"{brand} vs competitors",
-            f"is {brand} worth it",
-            f"best alternatives to {brand}",
-        ]
+        # Category-based fallbacks for known brands
+        known_categories = {
+            "nike": [
+                "best running shoes",
+                "top running shoes for marathon training",
+                "most comfortable athletic shoes",
+                "best basketball shoes",
+                "top workout clothes",
+                "best athletic apparel for gym",
+            ],
+            "adidas": [
+                "best running shoes",
+                "top soccer cleats",
+                "most comfortable athletic shoes",
+                "best workout clothes",
+                "top athletic sneakers",
+            ],
+            "apple": [
+                "best smartphones",
+                "top laptops for students",
+                "best wireless earbuds",
+                "top smartwatches",
+                "best tablets for work",
+            ],
+            "samsung": [
+                "best smartphones",
+                "top android phones",
+                "best smart TVs",
+                "top wireless earbuds",
+                "best tablets",
+            ],
+            "coca-cola": [
+                "best soft drinks",
+                "top soda brands",
+                "best refreshing beverages",
+                "top cola drinks",
+            ],
+            "toyota": [
+                "best reliable cars",
+                "top fuel efficient vehicles",
+                "best family SUVs",
+                "most reliable sedans",
+                "top hybrid cars",
+            ],
+            "mcdonald's": [
+                "best fast food restaurants",
+                "top burger chains",
+                "best quick service restaurants",
+                "top fast food for families",
+            ],
+        }
+        
+        # Return known categories or generic fallbacks
+        return known_categories.get(brand.lower(), [
+            "best products in category",
+            "top recommended options",
+            "best value options",
+            "most popular choices",
+            "top rated products",
+        ])
+
+
+
 
     def _get_fallback_competitors(self, brand: str) -> List[str]:
         """Get fallback competitors based on known brands."""
