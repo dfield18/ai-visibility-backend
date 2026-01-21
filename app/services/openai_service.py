@@ -119,11 +119,7 @@ class OpenAIService:
             model=self.MODEL,
         )
 
-
-
-
-
-async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> List[str]:
+    async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> List[str]:
         """Generate category-based prompts for a brand.
 
         Args:
@@ -164,15 +160,6 @@ async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> 
         except Exception as e:
             print(f"OpenAI prompt generation failed: {e}")
             return self._get_fallback_prompts(brand)
-
-
-
-
-
-
-
-
-
 
     async def generate_competitors(self, brand: str, industry: Optional[str] = None) -> List[str]:
         """Generate list of competitors for a brand.
@@ -239,10 +226,7 @@ async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> 
 
         return []
 
-
-
-
-def _get_fallback_prompts(self, brand: str) -> List[str]:
+    def _get_fallback_prompts(self, brand: str) -> List[str]:
         """Get fallback prompts when API fails."""
         # Category-based fallbacks for known brands
         known_categories = {
@@ -295,7 +279,7 @@ def _get_fallback_prompts(self, brand: str) -> List[str]:
                 "top fast food for families",
             ],
         }
-        
+
         # Return known categories or generic fallbacks
         return known_categories.get(brand.lower(), [
             "best products in category",
@@ -304,9 +288,6 @@ def _get_fallback_prompts(self, brand: str) -> List[str]:
             "most popular choices",
             "top rated products",
         ])
-
-
-
 
     def _get_fallback_competitors(self, brand: str) -> List[str]:
         """Get fallback competitors based on known brands."""
