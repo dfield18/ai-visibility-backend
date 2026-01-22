@@ -93,42 +93,70 @@ class SerpAPIService:
             response.raise_for_status()
             data = response.json()
 
-        # Extract AI Overview from response
+        # Debug: log available top-level keys
+        print(f"[SerpAPI] Response keys for '{prompt[:30]}...': {list(data.keys())}")
+
+        text = ""
+
+        # Try multiple possible field names for AI Overview
         ai_overview = data.get("ai_overview")
 
-        if not ai_overview:
-            # Try alternative field names that SerpAPI might use
-            ai_overview = data.get("answer_box", {}).get("ai_overview")
-
-        if not ai_overview:
-            # Check for featured snippet as fallback
-            featured_snippet = data.get("featured_snippet")
-            if featured_snippet:
-                text = featured_snippet.get("snippet", "")
-                if not text:
-                    text = featured_snippet.get("description", "")
-            else:
-                # No AI Overview available for this query
-                raise ValueError(f"No AI Overview available for query: {prompt}")
-        else:
-            # Extract text from AI Overview
+        if ai_overview:
+            print(f"[SerpAPI] Found ai_overview field")
             if isinstance(ai_overview, dict):
-                text = ai_overview.get("text", "")
+                # Try various text fields
+                text = ai_overview.get("text", "") or ai_overview.get("snippet", "") or ai_overview.get("answer", "")
                 if not text:
-                    # Try to get text from nested structure
                     text_blocks = ai_overview.get("text_blocks", [])
                     if text_blocks:
                         text = " ".join([block.get("text", "") for block in text_blocks if block.get("text")])
-                    else:
-                        # Try snippet
-                        text = ai_overview.get("snippet", "")
+                    # Try source blocks
+                    if not text:
+                        source_blocks = ai_overview.get("source", [])
+                        if source_blocks and isinstance(source_blocks, list):
+                            text = " ".join([s.get("snippet", "") for s in source_blocks if s.get("snippet")])
             elif isinstance(ai_overview, str):
                 text = ai_overview
-            else:
-                text = str(ai_overview)
+
+        # Try answer_box if no ai_overview
+        if not text:
+            answer_box = data.get("answer_box")
+            if answer_box:
+                print(f"[SerpAPI] Found answer_box field: {list(answer_box.keys()) if isinstance(answer_box, dict) else type(answer_box)}")
+                if isinstance(answer_box, dict):
+                    text = answer_box.get("answer", "") or answer_box.get("snippet", "") or answer_box.get("result", "")
+                    if not text and answer_box.get("contents"):
+                        contents = answer_box.get("contents", {})
+                        if isinstance(contents, dict):
+                            text = contents.get("answer", "") or contents.get("snippet", "")
+
+        # Try knowledge_graph
+        if not text:
+            knowledge_graph = data.get("knowledge_graph")
+            if knowledge_graph:
+                print(f"[SerpAPI] Found knowledge_graph field")
+                if isinstance(knowledge_graph, dict):
+                    text = knowledge_graph.get("description", "") or knowledge_graph.get("snippet", "")
+
+        # Try featured_snippet as fallback
+        if not text:
+            featured_snippet = data.get("featured_snippet")
+            if featured_snippet:
+                print(f"[SerpAPI] Found featured_snippet field")
+                if isinstance(featured_snippet, dict):
+                    text = featured_snippet.get("snippet", "") or featured_snippet.get("description", "")
+
+        # Try organic_results first result as last resort
+        if not text:
+            organic_results = data.get("organic_results", [])
+            if organic_results and len(organic_results) > 0:
+                print(f"[SerpAPI] Using first organic result as fallback")
+                first_result = organic_results[0]
+                text = first_result.get("snippet", "")
 
         if not text:
-            raise ValueError(f"Empty AI Overview for query: {prompt}")
+            print(f"[SerpAPI] No content found for query: {prompt}")
+            raise ValueError(f"No AI Overview or similar content available for query: {prompt}")
 
         # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
         tokens_input = len(prompt) // 4
