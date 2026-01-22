@@ -146,10 +146,14 @@ class OpenAIService:
         Raises:
             httpx.HTTPStatusError: If the API returns an error status.
         """
+        # Prepend instruction to search the web for current information
+        search_prompt = f"Search the web for current, up-to-date information to answer: {prompt}"
+
         payload = {
             "model": self.MODEL,
-            "input": prompt,
+            "input": search_prompt,
             "tools": [{"type": "web_search_preview"}],
+            "tool_choice": "required",  # Force the model to use web search
             "temperature": temperature,
         }
 
@@ -202,7 +206,13 @@ class OpenAIService:
 
             # Also check for web_search_call results which may contain sources
             elif item_type == "web_search_call":
-                print(f"[OpenAI] Web search call found: {item.keys()}")
+                print(f"[OpenAI] Web search call found: {item}")
+                # Extract search results if available
+                if "status" in item:
+                    print(f"[OpenAI] Web search status: {item.get('status')}")
+            else:
+                # Log any other output types we might be missing
+                print(f"[OpenAI] Other output item: {item}")
 
         # If no sources found via annotations, check for alternative locations
         if not sources:
