@@ -1,6 +1,6 @@
 """Gemini service for Google AI API calls."""
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 from tenacity import (
@@ -22,6 +22,7 @@ class GeminiResponse:
         tokens_output: Number of output tokens.
         cost: Estimated cost in dollars.
         model: Model used for generation.
+        sources: List of source citations (URL and title).
     """
 
     def __init__(
@@ -30,12 +31,15 @@ class GeminiResponse:
         tokens_input: int,
         tokens_output: int,
         model: str = "gemini-2.0-flash",
+        sources: Optional[List[Dict[str, str]]] = None,
     ):
         self.text = text
         self.tokens_input = tokens_input
         self.tokens_output = tokens_output
         self.model = model
+        self.sources = sources or []
         # Gemini Flash pricing: $0.000075/1K input, $0.0003/1K output
+        # Grounding adds ~$35/1K requests
         self.cost = (tokens_input * 0.000075 / 1000) + (tokens_output * 0.0003 / 1000)
 
 
@@ -85,6 +89,8 @@ class GeminiService:
             "generationConfig": {
                 "temperature": temperature,
             },
+            # Enable Google Search grounding for web search and citations
+            "tools": [{"google_search_retrieval": {}}],
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -105,6 +111,29 @@ class GeminiService:
         parts = content.get("parts", [])
         text = parts[0].get("text", "") if parts else ""
 
+        # Extract sources from grounding metadata
+        sources = []
+        grounding_metadata = candidates[0].get("groundingMetadata", {})
+        grounding_chunks = grounding_metadata.get("groundingChunks", [])
+
+        for chunk in grounding_chunks:
+            web_chunk = chunk.get("web", {})
+            if web_chunk:
+                sources.append({
+                    "url": web_chunk.get("uri", ""),
+                    "title": web_chunk.get("title", ""),
+                })
+
+        # Also check groundingSupports for additional sources
+        grounding_supports = grounding_metadata.get("groundingSupports", [])
+        for support in grounding_supports:
+            segment = support.get("segment", {})
+            # groundingChunkIndices reference the chunks above
+            # We've already captured those, so just log for debugging
+            pass
+
+        print(f"[Gemini] Found {len(sources)} sources from grounding")
+
         # Extract token counts from usage metadata
         usage = data.get("usageMetadata", {})
         tokens_input = usage.get("promptTokenCount", 0)
@@ -115,4 +144,5 @@ class GeminiService:
             tokens_input=tokens_input,
             tokens_output=tokens_output,
             model=self.MODEL,
+            sources=sources,
         )

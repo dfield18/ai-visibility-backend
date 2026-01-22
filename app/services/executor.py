@@ -237,7 +237,7 @@ class RunExecutor:
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
-                result.sources = []  # Gemini doesn't provide sources
+                result.sources = response.sources  # Sources from Google Search grounding
                 cost = response.cost
 
             elif provider == "anthropic" and self.anthropic_service:
