@@ -164,26 +164,61 @@ class OpenAIService:
             response.raise_for_status()
             data = response.json()
 
+        # Debug: log raw response structure
+        print(f"[OpenAI] Raw response keys: {data.keys()}")
+
         # Extract text from output
         text = ""
         sources = []
 
         # Parse the output array for text and citations
         output = data.get("output", [])
+        print(f"[OpenAI] Output items: {len(output)}")
+
         for item in output:
-            if item.get("type") == "message":
+            item_type = item.get("type")
+            print(f"[OpenAI] Output item type: {item_type}")
+
+            if item_type == "message":
                 content = item.get("content", [])
                 for content_item in content:
-                    if content_item.get("type") == "output_text":
+                    content_type = content_item.get("type")
+                    print(f"[OpenAI] Content item type: {content_type}")
+
+                    if content_type == "output_text":
                         text = content_item.get("text", "")
                         # Extract annotations (citations)
                         annotations = content_item.get("annotations", [])
+                        print(f"[OpenAI] Found {len(annotations)} annotations")
                         for annotation in annotations:
-                            if annotation.get("type") == "url_citation":
+                            ann_type = annotation.get("type")
+                            if ann_type == "url_citation":
                                 sources.append({
                                     "url": annotation.get("url", ""),
                                     "title": annotation.get("title", ""),
                                 })
+                            else:
+                                print(f"[OpenAI] Unknown annotation type: {ann_type}")
+
+            # Also check for web_search_call results which may contain sources
+            elif item_type == "web_search_call":
+                print(f"[OpenAI] Web search call found: {item.keys()}")
+
+        # If no sources found via annotations, check for alternative locations
+        if not sources:
+            # Check if there's a 'citations' key at the top level
+            if "citations" in data:
+                print(f"[OpenAI] Found top-level citations: {len(data['citations'])}")
+                for citation in data.get("citations", []):
+                    sources.append({
+                        "url": citation.get("url", ""),
+                        "title": citation.get("title", citation.get("name", "")),
+                    })
+
+            # Check in output_text for inline citations
+            if not sources and text:
+                # Log a sample of the text to see if citations are embedded differently
+                print(f"[OpenAI] Text sample (first 200 chars): {text[:200]}...")
 
         # Extract token counts from usage
         usage = data.get("usage", {})
