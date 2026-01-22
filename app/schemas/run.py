@@ -96,6 +96,13 @@ class RunSummary(BaseModel):
     competitor_mentions: Dict[str, CompetitorStats]
 
 
+class SourceItem(BaseModel):
+    """Source citation from an LLM response."""
+
+    url: str
+    title: str
+
+
 class ResultItem(BaseModel):
     """Individual result from an API call."""
 
@@ -112,6 +119,7 @@ class ResultItem(BaseModel):
     response_type: Optional[str]
     tokens: Optional[int]
     cost: Optional[float]
+    sources: Optional[List[SourceItem]]
     created_at: datetime
 
     class Config:
