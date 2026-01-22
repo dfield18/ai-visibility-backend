@@ -220,16 +220,24 @@ class RunExecutor:
 
         try:
             if provider == "openai" and self.openai_service:
-                # Use Responses API with web search to get sources
-                response = await self.openai_service.search_completion(
-                    prompt=prompt,
-                    temperature=temperature,
-                )
+                # Try Responses API with web search first, fall back to chat completion
+                try:
+                    response = await self.openai_service.search_completion(
+                        prompt=prompt,
+                        temperature=temperature,
+                    )
+                    result.sources = response.sources
+                except Exception as e:
+                    print(f"[Executor] OpenAI Responses API failed, falling back to chat completion: {e}")
+                    response = await self.openai_service.chat_completion(
+                        user_prompt=prompt,
+                        temperature=temperature,
+                    )
+                    result.sources = []
                 result.response_text = response.text
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
-                result.sources = response.sources
                 cost = response.cost
 
             elif provider == "gemini" and self.gemini_service:
