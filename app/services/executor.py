@@ -220,14 +220,16 @@ class RunExecutor:
 
         try:
             if provider == "openai" and self.openai_service:
-                response = await self.openai_service.chat_completion(
-                    user_prompt=prompt,
+                # Use Responses API with web search to get sources
+                response = await self.openai_service.search_completion(
+                    prompt=prompt,
                     temperature=temperature,
                 )
                 result.response_text = response.text
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
+                result.sources = response.sources
                 cost = response.cost
 
             elif provider == "gemini" and self.gemini_service:
@@ -239,6 +241,7 @@ class RunExecutor:
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
+                result.sources = []  # Gemini doesn't provide sources
                 cost = response.cost
 
             elif provider == "anthropic" and self.anthropic_service:
@@ -250,6 +253,7 @@ class RunExecutor:
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
+                result.sources = []  # Anthropic doesn't provide sources
                 cost = response.cost
 
             elif provider == "perplexity" and self.perplexity_service:
@@ -261,6 +265,7 @@ class RunExecutor:
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
+                result.sources = response.sources
                 cost = response.cost
 
             elif provider == "ai_overviews" and self.serpapi_service:
@@ -272,6 +277,7 @@ class RunExecutor:
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
+                result.sources = response.sources
                 cost = response.cost
 
             else:

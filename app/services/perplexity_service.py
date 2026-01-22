@@ -1,6 +1,6 @@
 """Perplexity service for Sonar API calls."""
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 from tenacity import (
@@ -22,6 +22,7 @@ class PerplexityResponse:
         tokens_output: Number of output tokens.
         cost: Estimated cost in dollars.
         model: Model used for generation.
+        sources: List of source citations (URL and title).
     """
 
     def __init__(
@@ -30,11 +31,13 @@ class PerplexityResponse:
         tokens_input: int,
         tokens_output: int,
         model: str = "sonar",
+        sources: Optional[List[Dict[str, str]]] = None,
     ):
         self.text = text
         self.tokens_input = tokens_input
         self.tokens_output = tokens_output
         self.model = model
+        self.sources = sources or []
         # Perplexity Sonar pricing: ~$0.001/1K input, $0.001/1K output
         self.cost = (tokens_input * 0.001 / 1000) + (tokens_output * 0.001 / 1000)
 
@@ -114,9 +117,33 @@ class PerplexityService:
         tokens_input = usage.get("prompt_tokens", 0)
         tokens_output = usage.get("completion_tokens", 0)
 
+        # Extract citations/sources
+        sources = []
+
+        # Try search_results first (includes title, url, date)
+        search_results = data.get("search_results", [])
+        if search_results:
+            for result in search_results:
+                sources.append({
+                    "url": result.get("url", ""),
+                    "title": result.get("title", ""),
+                })
+        else:
+            # Fall back to citations array (just URLs)
+            citations = data.get("citations", [])
+            for url in citations:
+                if isinstance(url, str):
+                    sources.append({
+                        "url": url,
+                        "title": "",
+                    })
+
+        print(f"[Perplexity] Response with {len(sources)} sources")
+
         return PerplexityResponse(
             text=text,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
             model=self.MODEL,
+            sources=sources,
         )

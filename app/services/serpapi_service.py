@@ -1,6 +1,6 @@
 """SerpAPI service for Google AI Overviews."""
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import httpx
 from tenacity import (
@@ -22,6 +22,7 @@ class SerpAPIResponse:
         tokens_output: Estimated output tokens (based on response length).
         cost: Estimated cost in dollars.
         model: Model identifier.
+        sources: List of source citations (URL and title).
     """
 
     def __init__(
@@ -30,11 +31,13 @@ class SerpAPIResponse:
         tokens_input: int,
         tokens_output: int,
         model: str = "google-ai-overview",
+        sources: Optional[List[Dict[str, str]]] = None,
     ):
         self.text = text
         self.tokens_input = tokens_input
         self.tokens_output = tokens_output
         self.model = model
+        self.sources = sources or []
         # SerpAPI pricing: $0.005 per search (approximate)
         self.cost = 0.005
 
@@ -97,6 +100,7 @@ class SerpAPIService:
         print(f"[SerpAPI] Response keys for '{prompt[:30]}...': {list(data.keys())}")
 
         text = ""
+        sources = []
 
         # Try multiple possible field names for AI Overview
         ai_overview = data.get("ai_overview")
@@ -115,6 +119,16 @@ class SerpAPIService:
                         source_blocks = ai_overview.get("source", [])
                         if source_blocks and isinstance(source_blocks, list):
                             text = " ".join([s.get("snippet", "") for s in source_blocks if s.get("snippet")])
+
+                # Extract sources from ai_overview
+                ai_sources = ai_overview.get("sources", []) or ai_overview.get("source", [])
+                if ai_sources and isinstance(ai_sources, list):
+                    for src in ai_sources:
+                        if isinstance(src, dict):
+                            sources.append({
+                                "url": src.get("link", "") or src.get("url", ""),
+                                "title": src.get("title", "") or src.get("name", ""),
+                            })
             elif isinstance(ai_overview, str):
                 text = ai_overview
 
@@ -129,6 +143,12 @@ class SerpAPIService:
                         contents = answer_box.get("contents", {})
                         if isinstance(contents, dict):
                             text = contents.get("answer", "") or contents.get("snippet", "")
+                    # Extract source from answer_box
+                    if answer_box.get("link"):
+                        sources.append({
+                            "url": answer_box.get("link", ""),
+                            "title": answer_box.get("title", ""),
+                        })
 
         # Try knowledge_graph
         if not text:
@@ -137,6 +157,13 @@ class SerpAPIService:
                 print(f"[SerpAPI] Found knowledge_graph field")
                 if isinstance(knowledge_graph, dict):
                     text = knowledge_graph.get("description", "") or knowledge_graph.get("snippet", "")
+                    # Extract source from knowledge_graph
+                    if knowledge_graph.get("source") and isinstance(knowledge_graph.get("source"), dict):
+                        kg_source = knowledge_graph.get("source")
+                        sources.append({
+                            "url": kg_source.get("link", ""),
+                            "title": kg_source.get("name", ""),
+                        })
 
         # Try featured_snippet as fallback
         if not text:
@@ -145,6 +172,12 @@ class SerpAPIService:
                 print(f"[SerpAPI] Found featured_snippet field")
                 if isinstance(featured_snippet, dict):
                     text = featured_snippet.get("snippet", "") or featured_snippet.get("description", "")
+                    # Extract source from featured_snippet
+                    if featured_snippet.get("link"):
+                        sources.append({
+                            "url": featured_snippet.get("link", ""),
+                            "title": featured_snippet.get("title", ""),
+                        })
 
         # Try organic_results first result as last resort
         if not text:
@@ -153,10 +186,30 @@ class SerpAPIService:
                 print(f"[SerpAPI] Using first organic result as fallback")
                 first_result = organic_results[0]
                 text = first_result.get("snippet", "")
+                # Add first few organic results as sources
+                for result in organic_results[:3]:
+                    sources.append({
+                        "url": result.get("link", ""),
+                        "title": result.get("title", ""),
+                    })
 
         if not text:
             print(f"[SerpAPI] No content found for query: {prompt}")
             raise ValueError(f"No AI Overview or similar content available for query: {prompt}")
+
+        # If no sources yet, add top organic results as sources
+        if not sources:
+            organic_results = data.get("organic_results", [])
+            for result in organic_results[:3]:
+                sources.append({
+                    "url": result.get("link", ""),
+                    "title": result.get("title", ""),
+                })
+
+        # Filter out empty sources
+        sources = [s for s in sources if s.get("url")]
+
+        print(f"[SerpAPI] Response with {len(sources)} sources")
 
         # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
         tokens_input = len(prompt) // 4
@@ -167,4 +220,5 @@ class SerpAPIService:
             tokens_input=tokens_input,
             tokens_output=tokens_output,
             model="google-ai-overview",
+            sources=sources,
         )

@@ -24,6 +24,7 @@ class OpenAIResponse:
         tokens_output: Number of output tokens.
         cost: Estimated cost in dollars.
         model: Model used for generation.
+        sources: List of source citations (URL and title).
     """
 
     def __init__(
@@ -32,12 +33,15 @@ class OpenAIResponse:
         tokens_input: int,
         tokens_output: int,
         model: str = "gpt-4o",
+        sources: Optional[List[Dict[str, str]]] = None,
     ):
         self.text = text
         self.tokens_input = tokens_input
         self.tokens_output = tokens_output
         self.model = model
+        self.sources = sources or []
         # GPT-4o pricing: $0.005/1K input, $0.015/1K output
+        # Web search adds ~$25/1K searches
         self.cost = (tokens_input * 0.005 / 1000) + (tokens_output * 0.015 / 1000)
 
 
@@ -117,6 +121,83 @@ class OpenAIService:
             tokens_input=usage.get("prompt_tokens", 0),
             tokens_output=usage.get("completion_tokens", 0),
             model=self.MODEL,
+        )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+        reraise=True,
+    )
+    async def search_completion(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+    ) -> OpenAIResponse:
+        """Make a request using Responses API with web search for citations.
+
+        Args:
+            prompt: The search query/prompt to send.
+            temperature: Sampling temperature (0.0-2.0).
+
+        Returns:
+            OpenAIResponse with generated text, usage stats, and sources.
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error status.
+        """
+        payload = {
+            "model": self.MODEL,
+            "input": prompt,
+            "tools": [{"type": "web_search_preview"}],
+            "temperature": temperature,
+        }
+
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(
+                f"{self.BASE_URL}/responses",
+                headers=self._get_headers(),
+                json=payload,
+            )
+            if not response.is_success:
+                print(f"[OpenAI] Error response: {response.status_code} - {response.text}")
+            response.raise_for_status()
+            data = response.json()
+
+        # Extract text from output
+        text = ""
+        sources = []
+
+        # Parse the output array for text and citations
+        output = data.get("output", [])
+        for item in output:
+            if item.get("type") == "message":
+                content = item.get("content", [])
+                for content_item in content:
+                    if content_item.get("type") == "output_text":
+                        text = content_item.get("text", "")
+                        # Extract annotations (citations)
+                        annotations = content_item.get("annotations", [])
+                        for annotation in annotations:
+                            if annotation.get("type") == "url_citation":
+                                sources.append({
+                                    "url": annotation.get("url", ""),
+                                    "title": annotation.get("title", ""),
+                                })
+
+        # Extract token counts from usage
+        usage = data.get("usage", {})
+        tokens_input = usage.get("input_tokens", 0)
+        tokens_output = usage.get("output_tokens", 0)
+
+        print(f"[OpenAI] Search completed with {len(sources)} sources")
+
+        return OpenAIResponse(
+            text=text,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+            model=self.MODEL,
+            sources=sources,
         )
 
     async def generate_prompts(self, brand: str, industry: Optional[str] = None) -> List[str]:

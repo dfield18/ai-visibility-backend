@@ -37,6 +37,7 @@ class Result(Base):
         response_type: Type of response (list, prose, unknown).
         tokens: Number of tokens used.
         cost: Cost of this API call.
+        sources: List of source URLs/citations from the response.
         created_at: When the result was created.
         run: Parent run reference.
     """
@@ -100,6 +101,10 @@ class Result(Base):
     )
     cost: Mapped[Optional[float]] = mapped_column(
         Numeric(10, 4),
+        nullable=True,
+    )
+    sources: Mapped[Optional[List[Any]]] = mapped_column(
+        JSON,
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
