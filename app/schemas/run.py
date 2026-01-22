@@ -99,8 +99,8 @@ class RunSummary(BaseModel):
 class SourceItem(BaseModel):
     """Source citation from an LLM response."""
 
-    url: str
-    title: str
+    url: str = ""
+    title: str = ""
 
 
 class ResultItem(BaseModel):
