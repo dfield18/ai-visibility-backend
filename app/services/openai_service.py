@@ -187,22 +187,25 @@ class OpenAIService:
         # Parse the output array for text and citations
         output = data.get("output", [])
         print(f"[OpenAI] Output items: {len(output)}")
+        print(f"[OpenAI] Full output structure: {output}")
 
-        for item in output:
+        for idx, item in enumerate(output):
             item_type = item.get("type")
-            print(f"[OpenAI] Output item type: {item_type}")
+            print(f"[OpenAI] Output[{idx}] type: {item_type}, keys: {item.keys()}")
 
             if item_type == "message":
                 content = item.get("content", [])
                 for content_item in content:
                     content_type = content_item.get("type")
-                    print(f"[OpenAI] Content item type: {content_type}")
+                    print(f"[OpenAI] Content item type: {content_type}, keys: {content_item.keys()}")
 
                     if content_type == "output_text":
                         text = content_item.get("text", "")
                         # Extract annotations (citations)
                         annotations = content_item.get("annotations", [])
                         print(f"[OpenAI] Found {len(annotations)} annotations")
+                        if annotations:
+                            print(f"[OpenAI] First annotation: {annotations[0]}")
                         for annotation in annotations:
                             ann_type = annotation.get("type")
                             if ann_type == "url_citation":
@@ -210,34 +213,36 @@ class OpenAIService:
                                     "url": annotation.get("url", ""),
                                     "title": annotation.get("title", ""),
                                 })
-                            else:
-                                print(f"[OpenAI] Unknown annotation type: {ann_type}")
 
-            # Also check for web_search_call results which may contain sources
+            # Check for web_search_call which may contain sources
             elif item_type == "web_search_call":
-                print(f"[OpenAI] Web search call found: {item}")
-                # Extract search results if available
-                if "status" in item:
-                    print(f"[OpenAI] Web search status: {item.get('status')}")
-            else:
-                # Log any other output types we might be missing
-                print(f"[OpenAI] Other output item: {item}")
+                print(f"[OpenAI] Web search call: status={item.get('status')}")
 
-        # If no sources found via annotations, check for alternative locations
-        if not sources:
-            # Check if there's a 'citations' key at the top level
-            if "citations" in data:
-                print(f"[OpenAI] Found top-level citations: {len(data['citations'])}")
-                for citation in data.get("citations", []):
+        # Check for 'sources' field at various levels (returns ALL URLs consulted)
+        # This is different from inline citations - it's ALL sources the model looked at
+        if "sources" in data:
+            print(f"[OpenAI] Found top-level sources: {data['sources']}")
+            for source in data.get("sources", []):
+                if isinstance(source, dict):
                     sources.append({
-                        "url": citation.get("url", ""),
-                        "title": citation.get("title", citation.get("name", "")),
+                        "url": source.get("url", ""),
+                        "title": source.get("title", ""),
                     })
+                elif isinstance(source, str):
+                    sources.append({"url": source, "title": ""})
 
-            # Check in output_text for inline citations
-            if not sources and text:
-                # Log a sample of the text to see if citations are embedded differently
-                print(f"[OpenAI] Text sample (first 200 chars): {text[:200]}...")
+        # Check for 'citations' at top level
+        if "citations" in data:
+            print(f"[OpenAI] Found top-level citations: {data['citations']}")
+            for citation in data.get("citations", []):
+                sources.append({
+                    "url": citation.get("url", ""),
+                    "title": citation.get("title", citation.get("name", "")),
+                })
+
+        # Log text sample for debugging
+        if text:
+            print(f"[OpenAI] Text sample (first 200 chars): {text[:200]}...")
 
         # Extract token counts from usage
         usage = data.get("usage", {})
