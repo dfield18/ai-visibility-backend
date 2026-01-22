@@ -147,15 +147,22 @@ class OpenAIService:
             httpx.HTTPStatusError: If the API returns an error status.
         """
         # Prepend instruction to search the web for current information
-        search_prompt = f"Search the web for current, up-to-date information to answer: {prompt}"
+        search_prompt = f"Search the web for the most current and up-to-date information in 2024-2025 to answer this question. Include sources and citations: {prompt}"
 
         payload = {
             "model": self.MODEL,
             "input": search_prompt,
-            "tools": [{"type": "web_search_preview"}],
-            "tool_choice": "required",  # Force the model to use web search
+            "tools": [
+                {
+                    "type": "web_search_preview",
+                    "search_context_size": "high",  # Request more search context
+                }
+            ],
+            "tool_choice": {"type": "web_search_preview"},  # Force specific tool
             "temperature": temperature,
         }
+        print(f"[OpenAI] Request payload tools: {payload['tools']}")
+        print(f"[OpenAI] Request payload tool_choice: {payload['tool_choice']}")
 
         async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(
@@ -170,6 +177,8 @@ class OpenAIService:
 
         # Debug: log raw response structure
         print(f"[OpenAI] Raw response keys: {data.keys()}")
+        print(f"[OpenAI] Tools in response: {data.get('tools')}")
+        print(f"[OpenAI] Tool choice in response: {data.get('tool_choice')}")
 
         # Extract text from output
         text = ""
