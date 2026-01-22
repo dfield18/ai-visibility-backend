@@ -137,17 +137,19 @@ class OpenAIService:
         industry_context = f" in the {industry} industry" if industry else ""
         user_prompt = (
             f"For the brand '{brand}'{industry_context}, identify the main product/service "
-            f"categories they operate in, then generate 6-8 consumer search queries for those categories.\n\n"
+            f"categories they operate in, then generate exactly 5 consumer search queries for those categories.\n\n"
             f"IMPORTANT RULES:\n"
             f"- Do NOT include the brand name '{brand}' in any search query\n"
             f"- Queries should be generic category searches like 'best running shoes' NOT 'best Nike shoes'\n"
             f"- Focus on discovery/recommendation queries consumers naturally ask\n"
-            f"- Include different intents: best overall, specific use cases, comparisons, budget options\n"
+            f"- Include different intents: best overall, specific use cases, comparisons\n"
+            f"- At least ONE query must be a 'how to' or informational question (e.g., 'how to choose running shoes', "
+            f"'what to look for in a laptop') - these trigger Google AI Overviews\n"
             f"- If the brand spans multiple categories, include queries for each\n\n"
-            f"Examples of GOOD queries: 'best running shoes', 'top marathon training shoes', "
-            f"'most comfortable athletic shoes', 'best wireless headphones'\n"
+            f"Examples of GOOD queries: 'best running shoes', 'how to choose running shoes for beginners', "
+            f"'most comfortable athletic shoes', 'what to look for in wireless headphones'\n"
             f"Examples of BAD queries: 'best Nike shoes', 'Nike vs Adidas', 'is Nike good'\n\n"
-            f"Return as JSON array of strings only, no explanation."
+            f"Return as JSON array of exactly 5 strings, no explanation."
         )
 
         try:
@@ -228,52 +230,53 @@ class OpenAIService:
 
     def _get_fallback_prompts(self, brand: str) -> List[str]:
         """Get fallback prompts when API fails."""
-        # Category-based fallbacks for known brands
+        # Category-based fallbacks for known brands (5 each, with at least 1 informational query)
         known_categories = {
             "nike": [
                 "best running shoes",
-                "top running shoes for marathon training",
+                "how to choose running shoes for beginners",
                 "most comfortable athletic shoes",
                 "best basketball shoes",
                 "top workout clothes",
-                "best athletic apparel for gym",
             ],
             "adidas": [
                 "best running shoes",
-                "top soccer cleats",
+                "how to choose soccer cleats",
                 "most comfortable athletic shoes",
                 "best workout clothes",
                 "top athletic sneakers",
             ],
             "apple": [
                 "best smartphones",
-                "top laptops for students",
+                "how to choose a laptop for students",
                 "best wireless earbuds",
                 "top smartwatches",
                 "best tablets for work",
             ],
             "samsung": [
                 "best smartphones",
-                "top android phones",
-                "best smart TVs",
+                "how to choose a smart TV",
+                "best android phones",
                 "top wireless earbuds",
                 "best tablets",
             ],
             "coca-cola": [
                 "best soft drinks",
+                "what are the healthiest sodas",
                 "top soda brands",
                 "best refreshing beverages",
                 "top cola drinks",
             ],
             "toyota": [
                 "best reliable cars",
+                "how to choose a family SUV",
                 "top fuel efficient vehicles",
-                "best family SUVs",
                 "most reliable sedans",
                 "top hybrid cars",
             ],
             "mcdonald's": [
                 "best fast food restaurants",
+                "how to eat healthy at fast food",
                 "top burger chains",
                 "best quick service restaurants",
                 "top fast food for families",
@@ -283,10 +286,10 @@ class OpenAIService:
         # Return known categories or generic fallbacks
         return known_categories.get(brand.lower(), [
             "best products in category",
+            "how to choose the right product",
             "top recommended options",
             "best value options",
             "most popular choices",
-            "top rated products",
         ])
 
     def _get_fallback_competitors(self, brand: str) -> List[str]:
