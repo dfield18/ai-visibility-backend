@@ -105,6 +105,21 @@ class SourceItem(BaseModel):
     title: str = ""
 
 
+class GroundingSupport(BaseModel):
+    """A grounding support linking response text to sources."""
+
+    segment: str = ""
+    chunk_indices: List[int] = []
+    confidence_scores: List[float] = []
+
+
+class GroundingMetadata(BaseModel):
+    """Grounding metadata from Gemini API."""
+
+    supports: List[GroundingSupport] = []
+    search_queries: List[str] = []
+
+
 class ResultItem(BaseModel):
     """Individual result from an API call."""
 
@@ -122,6 +137,7 @@ class ResultItem(BaseModel):
     tokens: Optional[int]
     cost: Optional[float]
     sources: Optional[List[SourceItem]]
+    grounding_metadata: Optional[GroundingMetadata]
     created_at: datetime
 
     class Config:

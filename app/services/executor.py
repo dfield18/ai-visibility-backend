@@ -238,6 +238,7 @@ class RunExecutor:
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
                 result.sources = response.sources  # Sources from Google Search grounding
+                result.grounding_metadata = response.grounding_metadata  # Grounding supports with confidence
                 cost = response.cost
 
             elif provider == "anthropic" and self.anthropic_service:

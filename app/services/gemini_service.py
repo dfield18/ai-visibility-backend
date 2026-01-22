@@ -1,6 +1,6 @@
 """Gemini service for Google AI API calls."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 from tenacity import (
@@ -23,6 +23,7 @@ class GeminiResponse:
         cost: Estimated cost in dollars.
         model: Model used for generation.
         sources: List of source citations (URL and title).
+        grounding_metadata: Full grounding metadata including supports with confidence scores.
     """
 
     def __init__(
@@ -32,12 +33,14 @@ class GeminiResponse:
         tokens_output: int,
         model: str = "gemini-2.0-flash",
         sources: Optional[List[Dict[str, str]]] = None,
+        grounding_metadata: Optional[Dict[str, Any]] = None,
     ):
         self.text = text
         self.tokens_input = tokens_input
         self.tokens_output = tokens_output
         self.model = model
         self.sources = sources or []
+        self.grounding_metadata = grounding_metadata
         # Gemini Flash pricing: $0.000075/1K input, $0.0003/1K output
         # Grounding adds ~$35/1K requests
         self.cost = (tokens_input * 0.000075 / 1000) + (tokens_output * 0.0003 / 1000)
@@ -127,15 +130,23 @@ class GeminiService:
                     "title": web_chunk.get("title", ""),
                 })
 
-        # Also check groundingSupports for additional sources
+        # Build structured grounding metadata with supports (confidence scores)
         grounding_supports = grounding_metadata.get("groundingSupports", [])
-        for support in grounding_supports:
-            segment = support.get("segment", {})
-            # groundingChunkIndices reference the chunks above
-            # We've already captured those, so just log for debugging
-            pass
+        structured_grounding = None
+        if grounding_supports or grounding_chunks:
+            structured_grounding = {
+                "supports": [
+                    {
+                        "segment": support.get("segment", {}).get("text", ""),
+                        "chunk_indices": support.get("groundingChunkIndices", []),
+                        "confidence_scores": support.get("confidenceScores", []),
+                    }
+                    for support in grounding_supports
+                ],
+                "search_queries": grounding_metadata.get("webSearchQueries", []),
+            }
 
-        print(f"[Gemini] Found {len(sources)} sources from grounding")
+        print(f"[Gemini] Found {len(sources)} sources, {len(grounding_supports)} grounding supports")
 
         # Extract token counts from usage metadata
         usage = data.get("usageMetadata", {})
@@ -148,4 +159,5 @@ class GeminiService:
             tokens_output=tokens_output,
             model=self.MODEL,
             sources=sources,
+            grounding_metadata=structured_grounding,
         )

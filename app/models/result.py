@@ -1,7 +1,7 @@
 """Result model for storing individual API call results."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
@@ -104,6 +104,10 @@ class Result(Base):
         nullable=True,
     )
     sources: Mapped[Optional[List[Any]]] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    grounding_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON,
         nullable=True,
     )
