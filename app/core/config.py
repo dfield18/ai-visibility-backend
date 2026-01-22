@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     PERPLEXITY_API_KEY: str = ""
+    SERPAPI_API_KEY: str = ""
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]

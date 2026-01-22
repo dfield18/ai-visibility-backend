@@ -24,7 +24,7 @@ class RunRequest(BaseModel):
     brand: str = Field(..., min_length=1, max_length=255)
     prompts: List[str] = Field(..., min_length=1, max_length=10)
     competitors: List[str] = Field(..., min_length=1, max_length=10)
-    providers: List[Literal["openai", "gemini", "anthropic", "perplexity"]] = Field(..., min_length=1)
+    providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]] = Field(..., min_length=1)
     temperatures: List[float] = Field(..., min_length=1)
     repeats: int = Field(default=1, ge=1, le=10)
 
