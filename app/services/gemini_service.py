@@ -90,7 +90,8 @@ class GeminiService:
                 "temperature": temperature,
             },
             # Enable Google Search grounding for web search and citations
-            "tools": [{"google_search_retrieval": {}}],
+            # Use google_search for newer models (2.0+), google_search_retrieval for older
+            "tools": [{"google_search": {}}],
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -99,6 +100,8 @@ class GeminiService:
                 params={"key": self.api_key},
                 json=payload,
             )
+            if not response.is_success:
+                print(f"[Gemini] Error response: {response.status_code} - {response.text}")
             response.raise_for_status()
             data = response.json()
 
