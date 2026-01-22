@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.routes import health, run, suggest
+from app.api.routes import admin, health, run, suggest
 
 router = APIRouter()
 
@@ -10,3 +10,4 @@ router = APIRouter()
 router.include_router(health.router, tags=["health"])
 router.include_router(suggest.router, tags=["suggest"])
 router.include_router(run.router, tags=["run"])
+router.include_router(admin.router, prefix="/admin", tags=["admin"])
