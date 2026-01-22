@@ -139,24 +139,13 @@ class RunExecutor:
             return_exceptions=True,
         )
 
-        # Count successes and failures
-        completed = 0
-        failed = 0
-        total_cost = Decimal("0")
-
+        # Count exceptions (tasks that failed outside normal error handling)
+        exception_count = sum(1 for r in results if isinstance(r, Exception))
         for result in results:
             if isinstance(result, Exception):
-                failed += 1
                 print(f"[Executor] Task exception: {result}")
-            elif isinstance(result, tuple):
-                success, cost = result
-                if success:
-                    completed += 1
-                    total_cost += Decimal(str(cost))
-                else:
-                    failed += 1
 
-        # Final update to run status
+        # Final update to run status (counters already updated incrementally)
         async with session_factory() as session:
             run = await session.get(Run, run_id)
             if run:
@@ -166,13 +155,12 @@ class RunExecutor:
                 else:
                     run.status = Run.STATUS_COMPLETE
 
-                run.completed_calls = completed
-                run.failed_calls = failed
-                run.actual_cost = total_cost
+                # Add any exception failures that weren't counted
+                run.failed_calls = (run.failed_calls or 0) + exception_count
                 run.completed_at = datetime.utcnow()
                 await session.commit()
 
-        print(f"[Executor] Run {run_id} completed: {completed} successful, {failed} failed")
+                print(f"[Executor] Run {run_id} completed: {run.completed_calls} successful, {run.failed_calls} failed")
 
     async def _execute_single_task(
         self,
@@ -309,9 +297,19 @@ class RunExecutor:
             result.error = str(e)
             print(f"[Executor] Task failed: {provider} | error={e}")
 
-        # Save result in its own session
+        # Save result and update run progress in its own session
         async with session_factory() as session:
             session.add(result)
+
+            # Update run progress incrementally
+            run = await session.get(Run, run_id)
+            if run:
+                if success:
+                    run.completed_calls = (run.completed_calls or 0) + 1
+                else:
+                    run.failed_calls = (run.failed_calls or 0) + 1
+                run.actual_cost = (run.actual_cost or Decimal("0")) + Decimal(str(cost))
+
             await session.commit()
 
         return (success, cost)
