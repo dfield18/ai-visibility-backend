@@ -335,6 +335,137 @@ class OpenAIService:
             print(f"OpenAI competitor generation failed: {e}")
             return self._get_fallback_competitors(brand)
 
+    async def generate_category_prompts(self, category: str, industry: Optional[str] = None) -> List[str]:
+        """Generate search prompts for a product category.
+
+        Args:
+            category: The product category (e.g., 'cars', 'shoes', 'laptops').
+            industry: Optional industry context.
+
+        Returns:
+            List of suggested search queries for the category.
+        """
+        system_prompt = (
+            "You are a market research assistant helping understand "
+            "brand visibility in AI-generated recommendations for product categories."
+        )
+
+        industry_context = f" in the {industry} industry" if industry else ""
+        user_prompt = (
+            f"For the product category '{category}'{industry_context}, generate exactly 5 consumer search queries.\n\n"
+            f"IMPORTANT RULES:\n"
+            f"- Queries should be generic category searches consumers naturally ask\n"
+            f"- Focus on discovery/recommendation queries\n"
+            f"- Include different intents: best overall, specific use cases, comparisons, buying guides\n"
+            f"- At least ONE query must be a 'how to' or informational question (e.g., 'how to choose a laptop', "
+            f"'what to look for when buying a car') - these trigger Google AI Overviews\n\n"
+            f"Examples for 'laptops': 'best laptops', 'how to choose a laptop for students', "
+            f"'best budget laptops', 'laptops for video editing', 'what specs matter in a laptop'\n\n"
+            f"Return as JSON array of exactly 5 strings, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI category prompt generation failed: {e}")
+            return self._get_fallback_category_prompts(category)
+
+    async def generate_category_brands(self, category: str, industry: Optional[str] = None) -> List[str]:
+        """Generate list of brands in a product category.
+
+        Args:
+            category: The product category (e.g., 'cars', 'shoes', 'laptops').
+            industry: Optional industry context.
+
+        Returns:
+            List of brand names in the category.
+        """
+        system_prompt = (
+            "You are a market research assistant. "
+            "Identify leading brands in product categories."
+        )
+
+        industry_context = f" in the {industry} industry" if industry else ""
+        user_prompt = (
+            f"List 8-10 leading brands in the '{category}' category{industry_context}. "
+            f"Include a mix of premium, mid-range, and value brands. "
+            f"Return as JSON array of strings only, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI category brands generation failed: {e}")
+            return self._get_fallback_category_brands(category)
+
+    def _get_fallback_category_prompts(self, category: str) -> List[str]:
+        """Get fallback prompts for categories when API fails."""
+        known_categories = {
+            "cars": [
+                "best cars",
+                "how to choose a car",
+                "most reliable cars",
+                "best family cars",
+                "fuel efficient cars",
+            ],
+            "shoes": [
+                "best shoes",
+                "how to choose running shoes",
+                "most comfortable shoes",
+                "best walking shoes",
+                "shoes for standing all day",
+            ],
+            "laptops": [
+                "best laptops",
+                "how to choose a laptop",
+                "best laptops for students",
+                "laptops for video editing",
+                "best budget laptops",
+            ],
+            "smartphones": [
+                "best smartphones",
+                "how to choose a phone",
+                "best phones for photography",
+                "best budget phones",
+                "phones with best battery life",
+            ],
+            "restaurants": [
+                "best restaurants",
+                "how to find good restaurants",
+                "best restaurants near me",
+                "top rated restaurants",
+                "restaurants for special occasions",
+            ],
+        }
+        return known_categories.get(category.lower(), [
+            f"best {category}",
+            f"how to choose {category}",
+            f"top rated {category}",
+            f"best {category} reviews",
+            f"{category} buying guide",
+        ])
+
+    def _get_fallback_category_brands(self, category: str) -> List[str]:
+        """Get fallback brands for categories when API fails."""
+        known_brands = {
+            "cars": ["Toyota", "Honda", "Ford", "BMW", "Mercedes-Benz", "Tesla", "Chevrolet", "Hyundai"],
+            "shoes": ["Nike", "Adidas", "New Balance", "ASICS", "Brooks", "Hoka", "Saucony", "Puma"],
+            "laptops": ["Apple", "Dell", "HP", "Lenovo", "ASUS", "Microsoft", "Acer", "Samsung"],
+            "smartphones": ["Apple", "Samsung", "Google", "OnePlus", "Xiaomi", "Sony", "Motorola", "Nothing"],
+            "restaurants": ["McDonald's", "Starbucks", "Chipotle", "Chick-fil-A", "Subway", "Panera", "Wendy's", "Taco Bell"],
+        }
+        return known_brands.get(category.lower(), [f"Brand 1", f"Brand 2", f"Brand 3", f"Brand 4", f"Brand 5"])
+
     def _parse_json_array(self, text: str) -> List[str]:
         """Parse a JSON array from text, handling markdown code blocks.
 
