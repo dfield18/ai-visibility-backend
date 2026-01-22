@@ -88,6 +88,7 @@ async def start_run(
     # Create run config
     config = {
         "brand": request.brand,
+        "search_type": request.search_type,
         "prompts": request.prompts,
         "competitors": request.competitors,
         "providers": request.providers,
@@ -182,10 +183,14 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
         for r in sorted(run.results, key=lambda x: x.created_at)
     ]
 
+    # Get search_type from config (default to 'brand' for backwards compatibility)
+    search_type = run.config.get("search_type", "brand") if run.config else "brand"
+
     return RunStatusResponse(
         run_id=run.id,
         status=run.status,
         brand=run.brand,
+        search_type=search_type,
         total_calls=run.total_calls,
         completed_calls=run.completed_calls,
         failed_calls=run.failed_calls,

@@ -12,9 +12,10 @@ class RunRequest(BaseModel):
 
     Attributes:
         session_id: Client session identifier.
-        brand: Brand to analyze.
+        brand: Brand or category to analyze.
+        search_type: Whether this is a brand or category search.
         prompts: List of prompts to test.
-        competitors: List of competitors to track.
+        competitors: List of competitors/brands to track.
         providers: AI providers to use.
         temperatures: Temperature settings for variation.
         repeats: Number of times to repeat each combination.
@@ -22,6 +23,7 @@ class RunRequest(BaseModel):
 
     session_id: str = Field(..., min_length=1, max_length=255)
     brand: str = Field(..., min_length=1, max_length=255)
+    search_type: Literal["brand", "category"] = Field(default="brand")
     prompts: List[str] = Field(..., min_length=1, max_length=10)
     competitors: List[str] = Field(..., min_length=1, max_length=10)
     providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]] = Field(..., min_length=1)
@@ -132,7 +134,8 @@ class RunStatusResponse(BaseModel):
     Attributes:
         run_id: Unique identifier for the run.
         status: Current status (queued, running, complete, failed, cancelled).
-        brand: Brand being analyzed.
+        brand: Brand or category being analyzed.
+        search_type: Whether this is a brand or category search.
         total_calls: Total number of API calls.
         completed_calls: Number of completed calls.
         failed_calls: Number of failed calls.
@@ -148,6 +151,7 @@ class RunStatusResponse(BaseModel):
     run_id: UUID
     status: str
     brand: str
+    search_type: Literal["brand", "category"] = "brand"
     total_calls: int
     completed_calls: int
     failed_calls: int
