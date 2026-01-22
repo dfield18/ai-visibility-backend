@@ -46,7 +46,7 @@ class SerpAPIService:
     Includes retry logic for handling rate limits and transient errors.
     """
 
-    BASE_URL = "https://serpapi.com/search"
+    BASE_URL = "https://serpapi.com/search.json"
 
     def __init__(self):
         """Initialize the SerpAPI service."""
