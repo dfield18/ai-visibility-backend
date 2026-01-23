@@ -105,7 +105,7 @@ class RunExecutor:
         temperatures = config.get("temperatures", [0.7])
         repeats = config.get("repeats", 1)
         openai_model = config.get("openai_model", "gpt-4o-mini")
-        anthropic_model = config.get("anthropic_model", "claude-3-haiku-20240307")
+        anthropic_model = config.get("anthropic_model", "claude-sonnet-4-20250514")
 
         # Build task list
         tasks = []
@@ -174,7 +174,7 @@ class RunExecutor:
         competitors: List[str],
         task: Dict[str, Any],
         openai_model: str = "gpt-4o-mini",
-        anthropic_model: str = "claude-3-haiku-20240307",
+        anthropic_model: str = "claude-sonnet-4-20250514",
     ) -> Tuple[bool, float]:
         """Execute a single API call task.
 
@@ -260,7 +260,7 @@ class RunExecutor:
                 result.model = response.model
                 result.tokens = response.tokens_input + response.tokens_output
                 result.cost = response.cost
-                result.sources = []  # Anthropic doesn't provide sources
+                result.sources = response.sources  # Sources from web search citations
                 cost = response.cost
 
             elif provider == "perplexity" and self.perplexity_service:
