@@ -62,6 +62,35 @@ class GeminiService:
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY not configured")
 
+    async def _resolve_proxy_url(self, proxy_url: str) -> str:
+        """Resolve a Gemini proxy URL to its actual destination by following redirects.
+
+        Args:
+            proxy_url: The vertexaisearch proxy URL to resolve.
+
+        Returns:
+            The actual destination URL, or the original URL if resolution fails.
+        """
+        if "vertexaisearch.cloud.google.com" not in proxy_url:
+            return proxy_url
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+                response = await client.head(proxy_url)
+                # Check for redirect (3xx status codes)
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("location", "")
+                    if location and not "vertexaisearch.cloud.google.com" in location:
+                        print(f"[Gemini] Resolved proxy URL to: {location}")
+                        return location
+                    # If redirect is also a proxy, try following it
+                    elif location:
+                        return await self._resolve_proxy_url(location)
+        except Exception as e:
+            print(f"[Gemini] Failed to resolve proxy URL: {e}")
+
+        return proxy_url
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -125,51 +154,31 @@ class GeminiService:
         # Debug: log the full grounding metadata structure
         print(f"[Gemini] Grounding metadata keys: {grounding_metadata.keys()}")
 
+        # Collect sources with proxy URLs first
+        import asyncio
+        proxy_urls_to_resolve = []
+
         for chunk in grounding_chunks:
             web_chunk = chunk.get("web", {})
             if web_chunk:
                 url = web_chunk.get("uri", "")
                 title = web_chunk.get("title", "")
-
-                # Check if this is a Vertex AI Search proxy URL and try to extract real URL
-                if "vertexaisearch.cloud.google.com" in url:
-                    # Try to parse query params for the real URL
-                    try:
-                        from urllib.parse import urlparse, parse_qs
-                        parsed = urlparse(url)
-                        query_params = parse_qs(parsed.query)
-                        # Common param names for redirect URLs
-                        for param in ["url", "q", "redirect", "target", "dest"]:
-                            if param in query_params:
-                                url = query_params[param][0]
-                                break
-                    except Exception as e:
-                        print(f"[Gemini] Could not parse proxy URL: {e}")
-
                 sources.append({
                     "url": url,
                     "title": title,
                 })
+                if "vertexaisearch.cloud.google.com" in url:
+                    proxy_urls_to_resolve.append((len(sources) - 1, url))
 
-        # Try to extract real URLs from searchEntryPoint HTML content
-        search_entry = grounding_metadata.get("searchEntryPoint", {})
-        if search_entry:
-            rendered_content = search_entry.get("renderedContent", "")
-            if rendered_content:
-                # Extract URLs from href attributes in the HTML
-                import re
-                href_urls = re.findall(r'href="([^"]+)"', rendered_content)
-                # Filter to actual web URLs (not javascript: or #)
-                real_urls = [u for u in href_urls if u.startswith("http")]
-                print(f"[Gemini] Found {len(real_urls)} URLs in searchEntryPoint HTML")
+        # Resolve all proxy URLs in parallel
+        if proxy_urls_to_resolve:
+            print(f"[Gemini] Resolving {len(proxy_urls_to_resolve)} proxy URLs...")
+            resolve_tasks = [self._resolve_proxy_url(url) for _, url in proxy_urls_to_resolve]
+            resolved_urls = await asyncio.gather(*resolve_tasks)
 
-                # If we have proxy URLs in sources, try to match them with real URLs
-                if real_urls and sources:
-                    # Create a mapping based on position/order
-                    for i, source in enumerate(sources):
-                        if "vertexaisearch.cloud.google.com" in source["url"] and i < len(real_urls):
-                            print(f"[Gemini] Replacing proxy URL with: {real_urls[i]}")
-                            source["url"] = real_urls[i]
+            for (idx, _), resolved_url in zip(proxy_urls_to_resolve, resolved_urls):
+                if resolved_url and "vertexaisearch.cloud.google.com" not in resolved_url:
+                    sources[idx]["url"] = resolved_url
 
         # Check retrievalMetadata for additional sources
         retrieval_metadata = grounding_metadata.get("retrievalMetadata", {})
