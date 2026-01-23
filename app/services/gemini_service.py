@@ -122,13 +122,49 @@ class GeminiService:
         grounding_metadata = candidates[0].get("groundingMetadata", {})
         grounding_chunks = grounding_metadata.get("groundingChunks", [])
 
+        # Debug: log the full grounding metadata structure
+        print(f"[Gemini] Grounding metadata keys: {grounding_metadata.keys()}")
+
         for chunk in grounding_chunks:
             web_chunk = chunk.get("web", {})
             if web_chunk:
+                url = web_chunk.get("uri", "")
+                title = web_chunk.get("title", "")
+
+                # Check if this is a Vertex AI Search proxy URL and try to extract real URL
+                if "vertexaisearch.cloud.google.com" in url:
+                    # Try to parse query params for the real URL
+                    try:
+                        from urllib.parse import urlparse, parse_qs
+                        parsed = urlparse(url)
+                        query_params = parse_qs(parsed.query)
+                        # Common param names for redirect URLs
+                        for param in ["url", "q", "redirect", "target", "dest"]:
+                            if param in query_params:
+                                url = query_params[param][0]
+                                break
+                    except Exception as e:
+                        print(f"[Gemini] Could not parse proxy URL: {e}")
+
                 sources.append({
-                    "url": web_chunk.get("uri", ""),
-                    "title": web_chunk.get("title", ""),
+                    "url": url,
+                    "title": title,
                 })
+
+        # Also check for sources in searchEntryPoint or supportingDocuments
+        search_entry = grounding_metadata.get("searchEntryPoint", {})
+        if search_entry:
+            print(f"[Gemini] Search entry point: {search_entry}")
+
+        # Check retrievalMetadata for additional sources
+        retrieval_metadata = grounding_metadata.get("retrievalMetadata", {})
+        if retrieval_metadata:
+            print(f"[Gemini] Retrieval metadata: {retrieval_metadata}")
+
+        # Check webSearchQueries for context
+        web_queries = grounding_metadata.get("webSearchQueries", [])
+        if web_queries:
+            print(f"[Gemini] Web search queries: {web_queries}")
 
         # Build structured grounding metadata with supports (confidence scores)
         grounding_supports = grounding_metadata.get("groundingSupports", [])
