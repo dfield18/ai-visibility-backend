@@ -599,31 +599,51 @@ class OpenAIService:
             results_data: Formatted string of all results data.
 
         Returns:
-            A 4-6 sentence summary of the results.
+            An executive summary of the results.
         """
         entity_type = "category" if search_type == "category" else "brand"
 
         system_prompt = (
             "You are an AI visibility analyst. Your job is to analyze how brands appear "
             "in AI-generated responses across different AI providers. Provide clear, "
-            "actionable insights in a professional tone."
+            "actionable insights in a professional, executive-ready style. "
+            "Prioritize clarity, scannability, and concrete takeaways."
         )
 
-        user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and provide a summary.
+        user_prompt = f"""
+Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary
+suitable for a product dashboard or brand intelligence report.
 
-The data below shows how different AI providers (OpenAI ChatGPT, Google Gemini, Anthropic Claude, Perplexity, Google AI Overviews) responded to various search prompts. Each result includes whether the brand was mentioned, which competitors appeared, and source citations.
+The data shows how different AI providers (OpenAI ChatGPT, Google Gemini, Anthropic Claude,
+Perplexity, Google AI Overviews) responded to relevant prompts. Each result includes brand mentions,
+competitors, and cited sources.
 
 DATA:
 {results_data}
 
-Write a 4-6 sentence executive summary that covers:
-1. Overall visibility: How often is {brand} being recommended/mentioned by AI assistants?
-2. Provider comparison: Which AI providers mention {brand} more or less often?
-3. Competitive landscape: Which competitors are mentioned most frequently? How does {brand} compare?
-4. Source patterns: What types of sources are commonly cited (if any)?
-5. Key insight: One actionable takeaway for improving AI visibility.
+Output format:
 
-Keep the summary concise, data-driven, and professional. Do not use bullet points - write in paragraph form."""
+1. Start with a **single bolded headline sentence** that clearly states the most important takeaway
+   about {brand}'s AI visibility (e.g., strong, weak, uneven, or provider-dependent).
+
+2. Follow with **4–5 short paragraph blocks**, separated by line breaks.
+   Each paragraph should begin with a **bolded lead-in phrase** (not bullet points)
+   and expand on the headline insight.
+
+Content to cover:
+- **Overall visibility**: How frequently {brand} is mentioned or recommended across AI assistants
+- **Provider differences**: Which AI providers favor or underrepresent {brand}
+- **Competitive context**: Most frequently mentioned competitors and how {brand} compares
+- **Source patterns**: Common citation types or notable gaps in sourcing
+- **Actionable takeaway**: One concrete, practical recommendation to improve AI visibility
+
+Style and formatting rules:
+- Do NOT use bullet points or numbered lists in the output
+- Use line breaks between paragraphs for readability
+- Avoid generic or hedging language (e.g., "may indicate", "appears to be")
+- Be specific, comparative, and decisive
+- Write for a brand, SEO, or growth lead—not an academic audience
+"""
 
         try:
             response = await self.chat_completion(
