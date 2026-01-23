@@ -612,38 +612,54 @@ class OpenAIService:
         )
 
         user_prompt = f"""
-Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary
-suitable for a product dashboard or brand intelligence report.
+Analyze the following AI visibility data for the {entity_type} "{brand}" and produce
+an executive summary suitable for a product dashboard or brand intelligence report.
 
-The data shows how different AI providers (OpenAI ChatGPT, Google Gemini, Anthropic Claude,
-Perplexity, Google AI Overviews) responded to relevant prompts. Each result includes brand mentions,
-competitors, and cited sources.
+The data shows how multiple AI providers (e.g., OpenAI ChatGPT, Google Gemini,
+Anthropic Claude, Perplexity, Google AI Overviews) responded to relevant prompts.
+Each result includes whether {brand} was mentioned, which competitors appeared,
+and any cited sources.
 
 DATA:
 {results_data}
 
-Output format:
+OUTPUT FORMAT:
 
-1. Start with a **single bolded headline sentence** that clearly states the most important takeaway
-   about {brand}'s AI visibility (e.g., strong, weak, uneven, or provider-dependent).
+1. Begin with a **single bolded headline sentence** that clearly states the dominant
+   conclusion about {brand}'s AI visibility (e.g., strong, moderate, weak, or provider-specific).
 
 2. Follow with **4–5 short paragraph blocks**, separated by line breaks.
    Each paragraph should begin with a **bolded lead-in phrase** (not bullet points)
-   and expand on the headline insight.
+   that guides the reader.
 
-Content to cover:
-- **Overall visibility**: How frequently {brand} is mentioned or recommended across AI assistants
-- **Provider differences**: Which AI providers favor or underrepresent {brand}
-- **Competitive context**: Most frequently mentioned competitors and how {brand} compares
-- **Source patterns**: Common citation types or notable gaps in sourcing
+CONTENT TO COVER:
+- **Overall visibility**: How frequently {brand} is mentioned or recommended across AI providers
+- **Provider differences**: Any meaningful over- or under-representation by specific providers
+- **Competitive context**: Which competitors appear most often and how {brand} compares
+- **Source patterns**: Commonly cited source types or notable gaps in sourcing
 - **Actionable takeaway**: One concrete, practical recommendation to improve AI visibility
 
-Style and formatting rules:
+INTERPRETATION GUIDANCE (CRITICAL):
+- Determine visibility strength based on the proportion of providers mentioning {brand},
+  relative to the total number of providers analyzed (which may range from 1 to 6).
+- Use the following framing guidelines:
+  • Presence in a clear majority of responses (≈70% or more) = **strong AI visibility**
+  • Presence in roughly half of responses = **moderate AI visibility**
+  • Presence in a small minority of responses = **weak AI visibility**
+- Do NOT describe visibility as "uneven", "mixed", or "inconsistent" if the brand appears
+  in a strong majority of responses.
+- Absence from a single provider should be framed as a **specific gap or opportunity**,
+  not as overall inconsistency.
+- Overall tone and headline should reflect the **dominant quantitative pattern**, not exceptions.
+
+STYLE AND FORMATTING RULES:
 - Do NOT use bullet points or numbered lists in the output
 - Use line breaks between paragraphs for readability
-- Avoid generic or hedging language (e.g., "may indicate", "appears to be")
+- Avoid hedging or softening language (e.g., "may indicate", "appears to be", "somewhat")
+- Avoid downplaying strong performance with qualifiers like "only" or "moderate" when data supports strength
 - Be specific, comparative, and decisive
 - Write for a brand, SEO, or growth lead—not an academic audience
+- Do not restate the prompt or describe the methodology
 """
 
         try:
