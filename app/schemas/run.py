@@ -29,6 +29,8 @@ class RunRequest(BaseModel):
     providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]] = Field(..., min_length=1)
     temperatures: List[float] = Field(..., min_length=1)
     repeats: int = Field(default=1, ge=1, le=10)
+    openai_model: Literal["gpt-4o-mini", "gpt-4o"] = Field(default="gpt-4o-mini")
+    anthropic_model: Literal["claude-3-haiku-20240307", "claude-sonnet-4-20250514"] = Field(default="claude-3-haiku-20240307")
 
     @field_validator("prompts")
     @classmethod

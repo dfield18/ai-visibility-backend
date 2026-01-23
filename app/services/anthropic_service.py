@@ -24,19 +24,26 @@ class AnthropicResponse:
         model: Model used for generation.
     """
 
+    # Pricing per 1K tokens
+    MODEL_PRICING = {
+        "claude-sonnet-4-20250514": {"input": 0.003, "output": 0.015},
+        "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
+    }
+
     def __init__(
         self,
         text: str,
         tokens_input: int,
         tokens_output: int,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-3-haiku-20240307",
     ):
         self.text = text
         self.tokens_input = tokens_input
         self.tokens_output = tokens_output
         self.model = model
-        # Claude 3.5 Sonnet pricing: $0.003/1K input, $0.015/1K output
-        self.cost = (tokens_input * 0.003 / 1000) + (tokens_output * 0.015 / 1000)
+        # Calculate cost based on model
+        pricing = self.MODEL_PRICING.get(model, self.MODEL_PRICING["claude-3-haiku-20240307"])
+        self.cost = (tokens_input * pricing["input"] / 1000) + (tokens_output * pricing["output"] / 1000)
 
 
 class AnthropicService:
@@ -74,12 +81,14 @@ class AnthropicService:
         self,
         prompt: str,
         temperature: float = 0.7,
+        model: str = "claude-3-haiku-20240307",
     ) -> AnthropicResponse:
         """Generate content using Claude.
 
         Args:
             prompt: The prompt to send.
             temperature: Sampling temperature (0.0-1.0).
+            model: Claude model to use (claude-3-haiku-20240307 or claude-sonnet-4-20250514).
 
         Returns:
             AnthropicResponse with generated text and usage stats.
@@ -88,7 +97,7 @@ class AnthropicService:
             httpx.HTTPStatusError: If the API returns an error status.
         """
         payload = {
-            "model": self.MODEL,
+            "model": model,
             "max_tokens": 4096,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": min(temperature, 1.0),  # Claude max temp is 1.0
@@ -121,5 +130,5 @@ class AnthropicService:
             text=text,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
-            model=self.MODEL,
+            model=model,
         )

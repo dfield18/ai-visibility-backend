@@ -27,6 +27,12 @@ class OpenAIResponse:
         sources: List of source citations (URL and title).
     """
 
+    # Pricing per 1K tokens
+    MODEL_PRICING = {
+        "gpt-4o": {"input": 0.005, "output": 0.015},
+        "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
+    }
+
     def __init__(
         self,
         text: str,
@@ -40,9 +46,9 @@ class OpenAIResponse:
         self.tokens_output = tokens_output
         self.model = model
         self.sources = sources or []
-        # GPT-4o pricing: $0.005/1K input, $0.015/1K output
-        # Web search adds ~$25/1K searches
-        self.cost = (tokens_input * 0.005 / 1000) + (tokens_output * 0.015 / 1000)
+        # Calculate cost based on model
+        pricing = self.MODEL_PRICING.get(model, self.MODEL_PRICING["gpt-4o"])
+        self.cost = (tokens_input * pricing["input"] / 1000) + (tokens_output * pricing["output"] / 1000)
 
 
 class OpenAIService:
@@ -133,12 +139,14 @@ class OpenAIService:
         self,
         prompt: str,
         temperature: float = 0.7,
+        model: str = "gpt-4o-mini",
     ) -> OpenAIResponse:
         """Make a request using Responses API with web search for citations.
 
         Args:
             prompt: The search query/prompt to send.
             temperature: Sampling temperature (0.0-2.0).
+            model: OpenAI model to use (gpt-4o-mini or gpt-4o).
 
         Returns:
             OpenAIResponse with generated text, usage stats, and sources.
@@ -150,7 +158,7 @@ class OpenAIService:
         search_prompt = f"Search the web for the most current and up-to-date information in 2024-2025 to answer this question. Include sources and citations: {prompt}"
 
         payload = {
-            "model": self.MODEL,
+            "model": model,
             "input": search_prompt,
             "tools": [
                 {
@@ -255,7 +263,7 @@ class OpenAIService:
             text=text,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
-            model=self.MODEL,
+            model=model,
             sources=sources,
         )
 

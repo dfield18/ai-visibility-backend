@@ -104,6 +104,8 @@ class RunExecutor:
         providers = config.get("providers", [])
         temperatures = config.get("temperatures", [0.7])
         repeats = config.get("repeats", 1)
+        openai_model = config.get("openai_model", "gpt-4o-mini")
+        anthropic_model = config.get("anthropic_model", "claude-3-haiku-20240307")
 
         # Build task list
         tasks = []
@@ -131,6 +133,8 @@ class RunExecutor:
                     brand=brand,
                     competitors=competitors,
                     task=task,
+                    openai_model=openai_model,
+                    anthropic_model=anthropic_model,
                 )
 
         # Run all tasks concurrently
@@ -169,6 +173,8 @@ class RunExecutor:
         brand: str,
         competitors: List[str],
         task: Dict[str, Any],
+        openai_model: str = "gpt-4o-mini",
+        anthropic_model: str = "claude-3-haiku-20240307",
     ) -> Tuple[bool, float]:
         """Execute a single API call task.
 
@@ -178,6 +184,8 @@ class RunExecutor:
             brand: Brand to check for.
             competitors: List of competitors to check for.
             task: Task configuration dict.
+            openai_model: OpenAI model to use.
+            anthropic_model: Anthropic model to use.
 
         Returns:
             Tuple of (success: bool, cost: float)
@@ -213,6 +221,7 @@ class RunExecutor:
                     response = await self.openai_service.search_completion(
                         prompt=prompt,
                         temperature=temperature,
+                        model=openai_model,
                     )
                     result.sources = response.sources
                 except Exception as e:
@@ -245,6 +254,7 @@ class RunExecutor:
                 response = await self.anthropic_service.generate_content(
                     prompt=prompt,
                     temperature=temperature,
+                    model=anthropic_model,
                 )
                 result.response_text = response.text
                 result.model = response.model
