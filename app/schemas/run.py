@@ -136,8 +136,8 @@ class ResultItem(BaseModel):
     response_type: Optional[str]
     tokens: Optional[int]
     cost: Optional[float]
-    sources: Optional[List[SourceItem]]
-    grounding_metadata: Optional[GroundingMetadata]
+    sources: Optional[List[SourceItem]] = None
+    grounding_metadata: Optional[GroundingMetadata] = None
     created_at: datetime
 
     class Config:
