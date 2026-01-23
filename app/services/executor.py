@@ -31,7 +31,7 @@ class RunExecutor:
     handles errors gracefully, and updates the database in real-time.
     """
 
-    MAX_CONCURRENT = 10  # Maximum parallel API calls
+    MAX_CONCURRENT = 25  # Maximum parallel API calls
 
     def __init__(self):
         """Initialize the executor with API services."""
