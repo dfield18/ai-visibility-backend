@@ -106,19 +106,53 @@ class SerpAPIService:
         ai_overview = data.get("ai_overview")
 
         if ai_overview:
-            print(f"[SerpAPI] Found ai_overview field")
+            print(f"[SerpAPI] Found ai_overview field with keys: {list(ai_overview.keys()) if isinstance(ai_overview, dict) else 'string'}")
             if isinstance(ai_overview, dict):
-                # Try various text fields
-                text = ai_overview.get("text", "") or ai_overview.get("snippet", "") or ai_overview.get("answer", "")
-                if not text:
-                    text_blocks = ai_overview.get("text_blocks", [])
-                    if text_blocks:
-                        text = " ".join([block.get("text", "") for block in text_blocks if block.get("text")])
-                    # Try source blocks
-                    if not text:
-                        source_blocks = ai_overview.get("source", [])
-                        if source_blocks and isinstance(source_blocks, list):
-                            text = " ".join([s.get("snippet", "") for s in source_blocks if s.get("snippet")])
+                text_parts = []
+
+                # Collect text from all available fields
+                if ai_overview.get("text"):
+                    text_parts.append(ai_overview.get("text"))
+                if ai_overview.get("snippet"):
+                    text_parts.append(ai_overview.get("snippet"))
+                if ai_overview.get("answer"):
+                    text_parts.append(ai_overview.get("answer"))
+
+                # Get text from text_blocks (often contains the full content)
+                text_blocks = ai_overview.get("text_blocks", [])
+                if text_blocks:
+                    for block in text_blocks:
+                        if isinstance(block, dict) and block.get("text"):
+                            text_parts.append(block.get("text"))
+                        elif isinstance(block, str):
+                            text_parts.append(block)
+
+                # Get text from list items if present
+                list_items = ai_overview.get("list", []) or ai_overview.get("items", [])
+                if list_items:
+                    for item in list_items:
+                        if isinstance(item, dict):
+                            item_text = item.get("title", "") or item.get("text", "") or item.get("snippet", "")
+                            if item_text:
+                                text_parts.append(f"• {item_text}")
+                        elif isinstance(item, str):
+                            text_parts.append(f"• {item}")
+
+                # Get text from source blocks
+                source_blocks = ai_overview.get("source", [])
+                if source_blocks and isinstance(source_blocks, list):
+                    for s in source_blocks:
+                        if isinstance(s, dict) and s.get("snippet"):
+                            text_parts.append(s.get("snippet"))
+
+                # Combine all text parts, removing duplicates while preserving order
+                seen = set()
+                unique_parts = []
+                for part in text_parts:
+                    if part and part not in seen:
+                        seen.add(part)
+                        unique_parts.append(part)
+                text = "\n\n".join(unique_parts)
 
                 # Extract sources from ai_overview
                 ai_sources = ai_overview.get("sources", []) or ai_overview.get("source", [])
