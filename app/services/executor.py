@@ -105,7 +105,7 @@ class RunExecutor:
         temperatures = config.get("temperatures", [0.7])
         repeats = config.get("repeats", 1)
         openai_model = config.get("openai_model", "gpt-4o-mini")
-        anthropic_model = config.get("anthropic_model", "claude-sonnet-4-20250514")
+        anthropic_model = config.get("anthropic_model", "claude-haiku-4-5-20251001")
 
         # Build task list
         tasks = []
@@ -174,7 +174,7 @@ class RunExecutor:
         competitors: List[str],
         task: Dict[str, Any],
         openai_model: str = "gpt-4o-mini",
-        anthropic_model: str = "claude-sonnet-4-20250514",
+        anthropic_model: str = "claude-haiku-4-5-20251001",
     ) -> Tuple[bool, float]:
         """Execute a single API call task.
 

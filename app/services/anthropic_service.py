@@ -28,6 +28,7 @@ class AnthropicResponse:
     # Pricing per 1K tokens
     MODEL_PRICING = {
         "claude-sonnet-4-20250514": {"input": 0.003, "output": 0.015},
+        "claude-haiku-4-5-20251001": {"input": 0.0008, "output": 0.004},
         "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
     }
 
@@ -65,7 +66,7 @@ class AnthropicService:
     """
 
     BASE_URL = "https://api.anthropic.com/v1"
-    MODEL = "claude-sonnet-4-20250514"
+    MODEL = "claude-haiku-4-5-20251001"  # Haiku 4.5 supports web search and is much cheaper
     API_VERSION = "2023-06-01"
 
     def __init__(self):
@@ -92,14 +93,14 @@ class AnthropicService:
         self,
         prompt: str,
         temperature: float = 0.7,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-haiku-4-5-20251001",
     ) -> AnthropicResponse:
         """Generate content using Claude with web search enabled.
 
         Args:
             prompt: The prompt to send.
             temperature: Sampling temperature (0.0-1.0).
-            model: Claude model to use (claude-sonnet-4-20250514 recommended for web search).
+            model: Claude model to use (claude-haiku-4-5-20251001 default, supports web search).
 
         Returns:
             AnthropicResponse with generated text, usage stats, and sources.
@@ -109,14 +110,14 @@ class AnthropicService:
         """
         payload = {
             "model": model,
-            "max_tokens": 4096,
+            "max_tokens": 2048,  # Reduced from 4096 for cost savings
             "messages": [{"role": "user", "content": prompt}],
             "temperature": min(temperature, 1.0),  # Claude max temp is 1.0
             # Enable web search tool for real-time information and citations
             "tools": [{
                 "type": "web_search_20250305",
                 "name": "web_search",
-                "max_uses": 5,
+                "max_uses": 2,  # Reduced from 5 for cost savings
             }],
         }
 
