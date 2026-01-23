@@ -151,10 +151,25 @@ class GeminiService:
                     "title": title,
                 })
 
-        # Also check for sources in searchEntryPoint or supportingDocuments
+        # Try to extract real URLs from searchEntryPoint HTML content
         search_entry = grounding_metadata.get("searchEntryPoint", {})
         if search_entry:
-            print(f"[Gemini] Search entry point: {search_entry}")
+            rendered_content = search_entry.get("renderedContent", "")
+            if rendered_content:
+                # Extract URLs from href attributes in the HTML
+                import re
+                href_urls = re.findall(r'href="([^"]+)"', rendered_content)
+                # Filter to actual web URLs (not javascript: or #)
+                real_urls = [u for u in href_urls if u.startswith("http")]
+                print(f"[Gemini] Found {len(real_urls)} URLs in searchEntryPoint HTML")
+
+                # If we have proxy URLs in sources, try to match them with real URLs
+                if real_urls and sources:
+                    # Create a mapping based on position/order
+                    for i, source in enumerate(sources):
+                        if "vertexaisearch.cloud.google.com" in source["url"] and i < len(real_urls):
+                            print(f"[Gemini] Replacing proxy URL with: {real_urls[i]}")
+                            source["url"] = real_urls[i]
 
         # Check retrievalMetadata for additional sources
         retrieval_metadata = grounding_metadata.get("retrievalMetadata", {})
