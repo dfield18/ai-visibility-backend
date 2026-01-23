@@ -584,3 +584,54 @@ class OpenAIService:
             "mcdonald's": ["Burger King", "Wendy's", "Taco Bell", "KFC", "Subway", "Chick-fil-A"],
         }
         return known_competitors.get(brand.lower(), ["Competitor 1", "Competitor 2", "Competitor 3"])
+
+    async def generate_results_summary(
+        self,
+        brand: str,
+        search_type: str,
+        results_data: str,
+    ) -> str:
+        """Generate an AI summary of visibility run results.
+
+        Args:
+            brand: The brand or category being analyzed.
+            search_type: Either 'brand' or 'category'.
+            results_data: Formatted string of all results data.
+
+        Returns:
+            A 4-6 sentence summary of the results.
+        """
+        entity_type = "category" if search_type == "category" else "brand"
+
+        system_prompt = (
+            "You are an AI visibility analyst. Your job is to analyze how brands appear "
+            "in AI-generated responses across different AI providers. Provide clear, "
+            "actionable insights in a professional tone."
+        )
+
+        user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and provide a summary.
+
+The data below shows how different AI providers (OpenAI ChatGPT, Google Gemini, Anthropic Claude, Perplexity, Google AI Overviews) responded to various search prompts. Each result includes whether the brand was mentioned, which competitors appeared, and source citations.
+
+DATA:
+{results_data}
+
+Write a 4-6 sentence executive summary that covers:
+1. Overall visibility: How often is {brand} being recommended/mentioned by AI assistants?
+2. Provider comparison: Which AI providers mention {brand} more or less often?
+3. Competitive landscape: Which competitors are mentioned most frequently? How does {brand} compare?
+4. Source patterns: What types of sources are commonly cited (if any)?
+5. Key insight: One actionable takeaway for improving AI visibility.
+
+Keep the summary concise, data-driven, and professional. Do not use bullet points - write in paragraph form."""
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.5,  # Lower temperature for more consistent summaries
+            )
+            return response.text
+        except Exception as e:
+            print(f"[OpenAI] Summary generation failed: {e}")
+            return ""

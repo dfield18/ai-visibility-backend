@@ -13,6 +13,7 @@ from app.models.result import Result
 from app.models.run import Run
 from app.models.session import Session
 from app.schemas.run import (
+    AISummaryResponse,
     CancelResponse,
     CompetitorStats,
     ProviderStats,
@@ -22,6 +23,7 @@ from app.schemas.run import (
     RunStatusResponse,
     RunSummary,
 )
+from app.services.openai_service import OpenAIService
 from app.services.executor import RunExecutor
 from app.services.result_processor import estimate_duration_seconds, estimate_run_cost
 
@@ -247,6 +249,121 @@ async def cancel_run(run_id: UUID, db: DatabaseDep) -> CancelResponse:
         cancelled_calls=cancelled_calls,
         actual_cost=float(run.actual_cost),
     )
+
+
+@router.get("/run/{run_id}/ai-summary", response_model=AISummaryResponse)
+async def get_ai_summary(run_id: UUID, db: DatabaseDep) -> AISummaryResponse:
+    """Generate an AI summary of the run results.
+
+    Args:
+        run_id: The UUID of the run.
+        db: Database session.
+
+    Returns:
+        AISummaryResponse with the AI-generated summary.
+
+    Raises:
+        HTTPException: If run not found or not complete.
+    """
+    # Fetch run with results
+    result = await db.execute(
+        select(Run)
+        .options(selectinload(Run.results))
+        .where(Run.id == run_id)
+    )
+    run = result.scalar_one_or_none()
+
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run.status != Run.STATUS_COMPLETE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run must be complete to generate summary. Current status: {run.status}",
+        )
+
+    # Filter to successful results only
+    successful_results = [r for r in run.results if r.error is None and r.response_text]
+
+    if not successful_results:
+        raise HTTPException(status_code=400, detail="No successful results to summarize")
+
+    # Format results data for the AI
+    results_data = _format_results_for_ai(successful_results, run.brand)
+
+    # Get search_type from config
+    search_type = run.config.get("search_type", "brand") if run.config else "brand"
+
+    # Generate summary using OpenAI
+    try:
+        openai_service = OpenAIService()
+        summary = await openai_service.generate_results_summary(
+            brand=run.brand,
+            search_type=search_type,
+            results_data=results_data,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI service not available: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {e}")
+
+    if not summary:
+        raise HTTPException(status_code=500, detail="Failed to generate summary")
+
+    return AISummaryResponse(
+        run_id=run_id,
+        summary=summary,
+        generated_at=datetime.utcnow(),
+    )
+
+
+def _format_results_for_ai(results: List[Result], brand: str) -> str:
+    """Format results into a readable string for AI analysis.
+
+    Args:
+        results: List of successful Result objects.
+        brand: The brand being analyzed.
+
+    Returns:
+        Formatted string with all results data.
+    """
+    lines = []
+    lines.append(f"Brand/Category: {brand}")
+    lines.append(f"Total Responses: {len(results)}")
+    lines.append("")
+
+    # Group by provider for better organization
+    by_provider: Dict[str, List[Result]] = {}
+    for r in results:
+        if r.provider not in by_provider:
+            by_provider[r.provider] = []
+        by_provider[r.provider].append(r)
+
+    for provider, provider_results in by_provider.items():
+        lines.append(f"=== {provider.upper()} ({len(provider_results)} responses) ===")
+
+        for r in provider_results:
+            lines.append(f"\nPrompt: {r.prompt}")
+            lines.append(f"Brand Mentioned: {'Yes' if r.brand_mentioned else 'No'}")
+            if r.competitors_mentioned:
+                lines.append(f"Competitors Mentioned: {', '.join(r.competitors_mentioned)}")
+            else:
+                lines.append("Competitors Mentioned: None")
+            lines.append(f"Response Type: {r.response_type or 'Unknown'}")
+
+            # Include truncated response text
+            if r.response_text:
+                truncated = r.response_text[:500] + "..." if len(r.response_text) > 500 else r.response_text
+                lines.append(f"Response Preview: {truncated}")
+
+            # Include sources if available
+            if r.sources:
+                source_titles = [s.get("title", s.get("url", ""))[:50] for s in r.sources[:3]]
+                lines.append(f"Sources: {', '.join(source_titles)}")
+
+            lines.append("")
+
+    return "\n".join(lines)
 
 
 def _build_summary(results: List[Result], brand: str) -> Optional[RunSummary]:

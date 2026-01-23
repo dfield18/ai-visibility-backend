@@ -190,3 +190,11 @@ class CancelResponse(BaseModel):
     completed_calls: int
     cancelled_calls: int
     actual_cost: float
+
+
+class AISummaryResponse(BaseModel):
+    """Response containing AI-generated summary of run results."""
+
+    run_id: UUID
+    summary: str
+    generated_at: datetime
