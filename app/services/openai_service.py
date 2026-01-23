@@ -605,9 +605,10 @@ class OpenAIService:
 
         system_prompt = (
             "You are an AI visibility analyst. Your job is to analyze how brands appear "
-            "in AI-generated responses across different AI providers. Provide clear, "
-            "actionable insights in a professional, executive-ready style. "
-            "Prioritize clarity, scannability, and concrete takeaways."
+            "in AI-generated responses across different AI providers. "
+            "You produce executive-ready summaries that are clear, accurate, and actionable. "
+            "You prioritize correct interpretation of quantitative data, scannability, "
+            "and business-relevant insights over cautious or academic language."
         )
 
         user_prompt = f"""
