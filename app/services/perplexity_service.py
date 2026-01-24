@@ -75,12 +75,14 @@ class PerplexityService:
         self,
         prompt: str,
         temperature: float = 0.7,
+        country: str = "us",
     ) -> PerplexityResponse:
         """Generate content using Perplexity Sonar.
 
         Args:
             prompt: The prompt to send.
             temperature: Sampling temperature (0.0-2.0).
+            country: Two-letter ISO country code for location filtering (e.g., 'us', 'gb').
 
         Returns:
             PerplexityResponse with generated text and usage stats.
@@ -92,6 +94,11 @@ class PerplexityService:
             "model": self.MODEL,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
+            "web_search_options": {
+                "user_location": {
+                    "country": country.upper(),
+                }
+            },
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:

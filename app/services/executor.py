@@ -271,6 +271,7 @@ class RunExecutor:
                 response = await self.perplexity_service.generate_content(
                     prompt=prompt,
                     temperature=temperature,
+                    country=country,
                 )
                 result.response_text = response.text
                 result.model = response.model
