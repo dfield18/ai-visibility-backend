@@ -57,6 +57,25 @@ class SerpAPIService:
         if not self.api_key:
             raise ValueError("SERPAPI_API_KEY not configured")
 
+    # Map country codes to language codes
+    COUNTRY_TO_LANGUAGE = {
+        "us": "en",
+        "gb": "en",
+        "ca": "en",
+        "au": "en",
+        "de": "de",
+        "fr": "fr",
+        "es": "es",
+        "it": "it",
+        "nl": "nl",
+        "br": "pt",
+        "mx": "es",
+        "in": "en",
+        "jp": "ja",
+        "kr": "ko",
+        "sg": "en",
+    }
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -67,12 +86,14 @@ class SerpAPIService:
         self,
         prompt: str,
         temperature: float = 0.7,  # Not used for SerpAPI but kept for interface consistency
+        country: str = "us",
     ) -> SerpAPIResponse:
         """Fetch AI Overview from Google via SerpAPI.
 
         Args:
             prompt: The search query to send.
             temperature: Not used, kept for interface consistency.
+            country: Country code for filtering search results (e.g., 'us', 'gb', 'de').
 
         Returns:
             SerpAPIResponse with AI Overview text.
@@ -81,12 +102,15 @@ class SerpAPIService:
             httpx.HTTPStatusError: If the API returns an error status.
             ValueError: If no AI Overview is available for the query.
         """
+        # Get language for the country, default to English
+        language = self.COUNTRY_TO_LANGUAGE.get(country.lower(), "en")
+
         params = {
             "q": prompt,
             "api_key": self.api_key,
             "engine": "google",
-            "gl": "us",
-            "hl": "en",
+            "gl": country.lower(),
+            "hl": language,
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:

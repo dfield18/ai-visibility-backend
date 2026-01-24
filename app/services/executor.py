@@ -106,6 +106,7 @@ class RunExecutor:
         repeats = config.get("repeats", 1)
         openai_model = config.get("openai_model", "gpt-4o-mini")
         anthropic_model = config.get("anthropic_model", "claude-haiku-4-5-20251001")
+        country = config.get("country", "us")
 
         # Build task list
         tasks = []
@@ -135,6 +136,7 @@ class RunExecutor:
                     task=task,
                     openai_model=openai_model,
                     anthropic_model=anthropic_model,
+                    country=country,
                 )
 
         # Run all tasks concurrently
@@ -175,6 +177,7 @@ class RunExecutor:
         task: Dict[str, Any],
         openai_model: str = "gpt-4o-mini",
         anthropic_model: str = "claude-haiku-4-5-20251001",
+        country: str = "us",
     ) -> Tuple[bool, float]:
         """Execute a single API call task.
 
@@ -186,6 +189,7 @@ class RunExecutor:
             task: Task configuration dict.
             openai_model: OpenAI model to use.
             anthropic_model: Anthropic model to use.
+            country: Country code for filtering search results.
 
         Returns:
             Tuple of (success: bool, cost: float)
@@ -279,6 +283,7 @@ class RunExecutor:
                 response = await self.serpapi_service.generate_content(
                     prompt=prompt,
                     temperature=temperature,
+                    country=country,
                 )
                 result.response_text = response.text
                 result.model = response.model

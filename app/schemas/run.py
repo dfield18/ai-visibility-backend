@@ -31,6 +31,7 @@ class RunRequest(BaseModel):
     repeats: int = Field(default=1, ge=1, le=10)
     openai_model: Literal["gpt-4o-mini", "gpt-4o"] = Field(default="gpt-4o-mini")
     anthropic_model: Literal["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"] = Field(default="claude-haiku-4-5-20251001")
+    country: str = Field(default="us", max_length=5)
 
     @field_validator("prompts")
     @classmethod
