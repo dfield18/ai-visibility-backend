@@ -268,7 +268,7 @@ class SerpAPIService:
             elif isinstance(ai_overview, str):
                 text = ai_overview
 
-        # Also check root-level references field (fallback)
+        # Also check root-level references field
         references = data.get("references", [])
         if references and isinstance(references, list):
             print(f"[SerpAPI] Found {len(references)} root-level references")
@@ -279,66 +279,103 @@ class SerpAPIService:
                     if ref_url and not any(s.get("url") == ref_url for s in sources):
                         sources.append({"url": ref_url, "title": ref_title})
 
-        # Try answer_box if no ai_overview
-        if not text:
-            answer_box = data.get("answer_box")
-            if answer_box:
-                print(f"[SerpAPI] Found answer_box field: {list(answer_box.keys()) if isinstance(answer_box, dict) else type(answer_box)}")
-                if isinstance(answer_box, dict):
-                    text = answer_box.get("answer", "") or answer_box.get("snippet", "") or answer_box.get("result", "")
-                    if not text and answer_box.get("contents"):
-                        contents = answer_box.get("contents", {})
-                        if isinstance(contents, dict):
-                            text = contents.get("answer", "") or contents.get("snippet", "")
-                    # Extract source from answer_box
-                    if answer_box.get("link"):
-                        sources.append({
-                            "url": answer_box.get("link", ""),
-                            "title": answer_box.get("title", ""),
-                        })
+        # Collect all additional snippets (not just fallbacks)
+        all_sections = []
+        if text:
+            all_sections.append(("AI Overview", text))
 
-        # Try knowledge_graph
-        if not text:
-            knowledge_graph = data.get("knowledge_graph")
-            if knowledge_graph:
-                print(f"[SerpAPI] Found knowledge_graph field")
-                if isinstance(knowledge_graph, dict):
-                    text = knowledge_graph.get("description", "") or knowledge_graph.get("snippet", "")
-                    # Extract source from knowledge_graph
-                    if knowledge_graph.get("source") and isinstance(knowledge_graph.get("source"), dict):
-                        kg_source = knowledge_graph.get("source")
-                        sources.append({
-                            "url": kg_source.get("link", ""),
-                            "title": kg_source.get("name", ""),
-                        })
+        # Add Answer Box content
+        answer_box = data.get("answer_box")
+        if answer_box and isinstance(answer_box, dict):
+            print(f"[SerpAPI] Found answer_box field")
+            ab_text = answer_box.get("answer", "") or answer_box.get("snippet", "") or answer_box.get("result", "")
+            if not ab_text and answer_box.get("contents"):
+                contents = answer_box.get("contents", {})
+                if isinstance(contents, dict):
+                    ab_text = contents.get("answer", "") or contents.get("snippet", "")
+            if ab_text and ab_text not in text:
+                all_sections.append(("Answer Box", ab_text))
+            if answer_box.get("link"):
+                url = answer_box.get("link", "")
+                if url and not any(s.get("url") == url for s in sources):
+                    sources.append({"url": url, "title": answer_box.get("title", "")})
 
-        # Try featured_snippet as fallback
-        if not text:
-            featured_snippet = data.get("featured_snippet")
-            if featured_snippet:
-                print(f"[SerpAPI] Found featured_snippet field")
-                if isinstance(featured_snippet, dict):
-                    text = featured_snippet.get("snippet", "") or featured_snippet.get("description", "")
-                    # Extract source from featured_snippet
-                    if featured_snippet.get("link"):
-                        sources.append({
-                            "url": featured_snippet.get("link", ""),
-                            "title": featured_snippet.get("title", ""),
-                        })
+        # Add Featured Snippet content
+        featured_snippet = data.get("featured_snippet")
+        if featured_snippet and isinstance(featured_snippet, dict):
+            print(f"[SerpAPI] Found featured_snippet field")
+            fs_text = featured_snippet.get("snippet", "") or featured_snippet.get("description", "")
+            if fs_text and fs_text not in text:
+                all_sections.append(("Featured Snippet", fs_text))
+            if featured_snippet.get("link"):
+                url = featured_snippet.get("link", "")
+                if url and not any(s.get("url") == url for s in sources):
+                    sources.append({"url": url, "title": featured_snippet.get("title", "")})
 
-        # Try organic_results first result as last resort
-        if not text:
-            organic_results = data.get("organic_results", [])
+        # Add Knowledge Graph content
+        knowledge_graph = data.get("knowledge_graph")
+        if knowledge_graph and isinstance(knowledge_graph, dict):
+            print(f"[SerpAPI] Found knowledge_graph field")
+            kg_text = knowledge_graph.get("description", "") or knowledge_graph.get("snippet", "")
+            if kg_text and kg_text not in text:
+                all_sections.append(("Knowledge Graph", kg_text))
+            if knowledge_graph.get("source") and isinstance(knowledge_graph.get("source"), dict):
+                kg_source = knowledge_graph.get("source")
+                url = kg_source.get("link", "")
+                if url and not any(s.get("url") == url for s in sources):
+                    sources.append({"url": url, "title": kg_source.get("name", "")})
+
+        # Add Related Questions (People Also Ask)
+        related_questions = data.get("related_questions", [])
+        if related_questions and isinstance(related_questions, list):
+            print(f"[SerpAPI] Found {len(related_questions)} related questions")
+            rq_parts = []
+            for rq in related_questions[:5]:  # Limit to first 5
+                if isinstance(rq, dict):
+                    question = rq.get("question", "")
+                    answer = rq.get("snippet", "") or rq.get("answer", "")
+                    if question and answer:
+                        rq_parts.append(f"**{question}**\n{answer}")
+                    elif question:
+                        rq_parts.append(f"**{question}**")
+                    # Add source
+                    if rq.get("link"):
+                        url = rq.get("link", "")
+                        if url and not any(s.get("url") == url for s in sources):
+                            sources.append({"url": url, "title": rq.get("title", "")})
+            if rq_parts:
+                all_sections.append(("People Also Ask", "\n\n".join(rq_parts)))
+
+        # Add top organic results snippets
+        organic_results = data.get("organic_results", [])
+        if organic_results and isinstance(organic_results, list):
+            org_parts = []
+            for result in organic_results[:3]:  # Top 3 organic results
+                if isinstance(result, dict):
+                    snippet = result.get("snippet", "")
+                    title = result.get("title", "")
+                    if snippet:
+                        org_parts.append(f"**{title}**: {snippet}" if title else snippet)
+                    # Add source
+                    if result.get("link"):
+                        url = result.get("link", "")
+                        if url and not any(s.get("url") == url for s in sources):
+                            sources.append({"url": url, "title": title})
+            if org_parts:
+                all_sections.append(("Top Search Results", "\n\n".join(org_parts)))
+
+        # Combine all sections into final text
+        if all_sections:
+            combined_parts = []
+            for section_name, section_text in all_sections:
+                combined_parts.append(f"**[{section_name}]**\n\n{section_text}")
+            text = "\n\n---\n\n".join(combined_parts)
+        elif not text:
+            # Fallback if nothing found
             if organic_results and len(organic_results) > 0:
-                print(f"[SerpAPI] Using first organic result as fallback")
+                print(f"[SerpAPI] Using organic results as fallback")
                 first_result = organic_results[0]
                 text = first_result.get("snippet", "")
-                # Add first few organic results as sources
-                for result in organic_results[:3]:
-                    sources.append({
-                        "url": result.get("link", ""),
-                        "title": result.get("title", ""),
-                    })
 
         if not text:
             print(f"[SerpAPI] No content found for query: {prompt}")
