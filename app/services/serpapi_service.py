@@ -129,13 +129,46 @@ class SerpAPIService:
         text = ""
         sources = []
 
-        # Check for lazy-loaded AI Overview (requires second API call)
-        page_token = data.get("page_token")
-        if page_token:
-            print(f"[SerpAPI] Warning: AI Overview is lazy-loaded (page_token present). Content may be incomplete.")
-
-        # Try multiple possible field names for AI Overview
+        # Check for lazy-loaded AI Overview and fetch it if available
         ai_overview = data.get("ai_overview")
+
+        # If ai_overview has a serpapi_link, fetch the full content
+        if isinstance(ai_overview, dict) and ai_overview.get("serpapi_link"):
+            serpapi_link = ai_overview.get("serpapi_link")
+            print(f"[SerpAPI] AI Overview is lazy-loaded, fetching from: {serpapi_link[:100]}...")
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    lazy_response = await client.get(serpapi_link)
+                    if lazy_response.is_success:
+                        lazy_data = lazy_response.json()
+                        print(f"[SerpAPI] ===== LAZY-LOADED AI OVERVIEW =====")
+                        print(json.dumps(lazy_data, indent=2, default=str))
+                        print(f"[SerpAPI] ===== END LAZY-LOADED =====")
+                        # Use the lazy-loaded ai_overview if available
+                        if lazy_data.get("ai_overview"):
+                            ai_overview = lazy_data.get("ai_overview")
+                        elif lazy_data.get("text_blocks") or lazy_data.get("references"):
+                            # Sometimes the response is the ai_overview content directly
+                            ai_overview = lazy_data
+            except Exception as e:
+                print(f"[SerpAPI] Failed to fetch lazy-loaded AI Overview: {e}")
+
+        # Also check for page_token at root level (older format)
+        elif data.get("page_token") and data.get("serpapi_link"):
+            serpapi_link = data.get("serpapi_link")
+            print(f"[SerpAPI] Root-level lazy-load detected, fetching from: {serpapi_link[:100]}...")
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    lazy_response = await client.get(serpapi_link)
+                    if lazy_response.is_success:
+                        lazy_data = lazy_response.json()
+                        print(f"[SerpAPI] ===== LAZY-LOADED RESPONSE =====")
+                        print(json.dumps(lazy_data, indent=2, default=str))
+                        print(f"[SerpAPI] ===== END LAZY-LOADED =====")
+                        if lazy_data.get("ai_overview"):
+                            ai_overview = lazy_data.get("ai_overview")
+            except Exception as e:
+                print(f"[SerpAPI] Failed to fetch lazy-loaded content: {e}")
 
         if ai_overview:
             print(f"[SerpAPI] Found ai_overview field with keys: {list(ai_overview.keys()) if isinstance(ai_overview, dict) else 'string'}")
