@@ -1,5 +1,6 @@
 """SerpAPI service for Google AI Overviews."""
 
+import json
 from typing import Dict, List, Optional
 
 import httpx
@@ -120,8 +121,10 @@ class SerpAPIService:
             response.raise_for_status()
             data = response.json()
 
-        # Debug: log available top-level keys
-        print(f"[SerpAPI] Response keys for '{prompt[:30]}...': {list(data.keys())}")
+        # Debug: log full response
+        print(f"[SerpAPI] ===== FULL RESPONSE for '{prompt[:50]}...' =====")
+        print(json.dumps(data, indent=2, default=str))
+        print(f"[SerpAPI] ===== END FULL RESPONSE =====")
 
         text = ""
         sources = []
