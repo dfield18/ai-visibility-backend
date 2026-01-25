@@ -126,6 +126,11 @@ class SerpAPIService:
         text = ""
         sources = []
 
+        # Check for lazy-loaded AI Overview (requires second API call)
+        page_token = data.get("page_token")
+        if page_token:
+            print(f"[SerpAPI] Warning: AI Overview is lazy-loaded (page_token present). Content may be incomplete.")
+
         # Try multiple possible field names for AI Overview
         ai_overview = data.get("ai_overview")
 
@@ -143,11 +148,26 @@ class SerpAPIService:
                     text_parts.append(ai_overview.get("answer"))
 
                 # Get text from text_blocks (often contains the full content)
+                # text_blocks can have types: heading, paragraph, list, expandable, comparison
                 text_blocks = ai_overview.get("text_blocks", [])
                 if text_blocks:
                     for block in text_blocks:
-                        if isinstance(block, dict) and block.get("text"):
-                            text_parts.append(block.get("text"))
+                        if isinstance(block, dict):
+                            # Primary field is 'snippet' according to SerpAPI docs
+                            block_text = block.get("snippet") or block.get("text")
+                            if block_text:
+                                text_parts.append(block_text)
+
+                            # Handle nested list items within text_block
+                            block_list = block.get("list", [])
+                            if block_list:
+                                for list_item in block_list:
+                                    if isinstance(list_item, dict):
+                                        item_text = list_item.get("snippet") or list_item.get("title") or list_item.get("text")
+                                        if item_text:
+                                            text_parts.append(f"• {item_text}")
+                                    elif isinstance(list_item, str):
+                                        text_parts.append(f"• {list_item}")
                         elif isinstance(block, str):
                             text_parts.append(block)
 
@@ -189,6 +209,17 @@ class SerpAPIService:
                             })
             elif isinstance(ai_overview, str):
                 text = ai_overview
+
+        # Also check root-level references field (SerpAPI stores sources here)
+        references = data.get("references", [])
+        if references and isinstance(references, list):
+            print(f"[SerpAPI] Found {len(references)} root-level references")
+            for ref in references:
+                if isinstance(ref, dict):
+                    ref_url = ref.get("link", "") or ref.get("url", "")
+                    ref_title = ref.get("title", "") or ref.get("name", "")
+                    if ref_url and not any(s.get("url") == ref_url for s in sources):
+                        sources.append({"url": ref_url, "title": ref_title})
 
         # Try answer_box if no ai_overview
         if not text:
