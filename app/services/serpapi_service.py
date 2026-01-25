@@ -156,12 +156,22 @@ class SerpAPIService:
                 if text_blocks:
                     for block in text_blocks:
                         if isinstance(block, dict):
+                            block_type = block.get("type", "paragraph")
                             # Primary field is 'snippet' according to SerpAPI docs
                             block_text = block.get("snippet") or block.get("text")
-                            if block_text:
-                                text_parts.append(block_text)
 
-                            # Handle nested list items within text_block
+                            if block_text:
+                                # Format short paragraphs without periods as headings (markdown bold)
+                                is_heading = (
+                                    block_type == "heading" or
+                                    (len(block_text) < 60 and not block_text.endswith('.') and not block_text.endswith(':'))
+                                )
+                                if is_heading:
+                                    text_parts.append(f"**{block_text}**")
+                                else:
+                                    text_parts.append(block_text)
+
+                            # Handle nested list items within text_block (type: list)
                             block_list = block.get("list", [])
                             if block_list:
                                 for list_item in block_list:
@@ -201,7 +211,7 @@ class SerpAPIService:
                         unique_parts.append(part)
                 text = "\n\n".join(unique_parts)
 
-                # Extract sources from ai_overview
+                # Extract sources from ai_overview (check multiple locations)
                 ai_sources = ai_overview.get("sources", []) or ai_overview.get("source", [])
                 if ai_sources and isinstance(ai_sources, list):
                     for src in ai_sources:
@@ -210,10 +220,22 @@ class SerpAPIService:
                                 "url": src.get("link", "") or src.get("url", ""),
                                 "title": src.get("title", "") or src.get("name", ""),
                             })
+
+                # Extract references from inside ai_overview (this is where SerpAPI puts them)
+                ai_references = ai_overview.get("references", [])
+                if ai_references and isinstance(ai_references, list):
+                    print(f"[SerpAPI] Found {len(ai_references)} references inside ai_overview")
+                    for ref in ai_references:
+                        if isinstance(ref, dict):
+                            ref_url = ref.get("link", "") or ref.get("url", "")
+                            ref_title = ref.get("title", "") or ref.get("name", "")
+                            if ref_url and not any(s.get("url") == ref_url for s in sources):
+                                sources.append({"url": ref_url, "title": ref_title})
+
             elif isinstance(ai_overview, str):
                 text = ai_overview
 
-        # Also check root-level references field (SerpAPI stores sources here)
+        # Also check root-level references field (fallback)
         references = data.get("references", [])
         if references and isinstance(references, list):
             print(f"[SerpAPI] Found {len(references)} root-level references")
