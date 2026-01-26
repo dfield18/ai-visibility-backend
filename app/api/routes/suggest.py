@@ -1,10 +1,14 @@
 """Suggest endpoint for generating prompts and competitors/brands."""
 
 import re
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import select, and_
 
+from app.core.database import DatabaseSession
+from app.models.cached_suggestion import CachedSuggestion
 from app.schemas.suggest import SuggestRequest, SuggestResponse
 from app.services.openai_service import OpenAIService
 
@@ -34,15 +38,92 @@ def update_years_in_prompts(prompts: List[str]) -> List[str]:
     return updated
 
 
+async def get_cached_suggestion(
+    db: DatabaseSession,
+    brand: str,
+    search_type: str,
+    industry: Optional[str],
+) -> Optional[CachedSuggestion]:
+    """Look up a cached suggestion by brand, search_type, and industry.
+
+    Args:
+        db: Database session.
+        brand: Brand or category name (will be lowercased).
+        search_type: Type of search ('brand' or 'category').
+        industry: Optional industry context (will be lowercased).
+
+    Returns:
+        CachedSuggestion if found and not expired, None otherwise.
+    """
+    normalized_brand = brand.lower().strip()
+    normalized_industry = industry.lower().strip() if industry else None
+
+    # Build query conditions
+    conditions = [
+        CachedSuggestion.brand == normalized_brand,
+        CachedSuggestion.search_type == search_type,
+        CachedSuggestion.expires_at > datetime.utcnow(),
+    ]
+
+    if normalized_industry:
+        conditions.append(CachedSuggestion.industry == normalized_industry)
+    else:
+        conditions.append(CachedSuggestion.industry.is_(None))
+
+    result = await db.execute(
+        select(CachedSuggestion).where(and_(*conditions))
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_cached_suggestion(
+    db: DatabaseSession,
+    brand: str,
+    search_type: str,
+    prompts: List[str],
+    competitors: List[str],
+    industry: Optional[str],
+) -> CachedSuggestion:
+    """Save a new cached suggestion to the database.
+
+    Args:
+        db: Database session.
+        brand: Brand or category name.
+        search_type: Type of search ('brand' or 'category').
+        prompts: List of generated prompts.
+        competitors: List of generated competitors/brands.
+        industry: Optional industry context.
+
+    Returns:
+        The created CachedSuggestion instance.
+    """
+    cached = CachedSuggestion.create_with_ttl(
+        brand=brand,
+        search_type=search_type,
+        prompts=prompts,
+        competitors=competitors,
+        industry=industry,
+    )
+    db.add(cached)
+    await db.flush()
+    return cached
+
+
 @router.post("/suggest", response_model=SuggestResponse)
-async def generate_suggestions(request: SuggestRequest) -> SuggestResponse:
+async def generate_suggestions(
+    request: SuggestRequest,
+    db: DatabaseSession,
+) -> SuggestResponse:
     """Generate suggested prompts and competitors/brands.
 
     For brand searches: generates consumer search queries and identifies competitors.
     For category searches: generates search queries and identifies brands in that category.
 
+    Results are cached for 30 days to reduce API calls.
+
     Args:
         request: SuggestRequest containing brand/category name, search_type, and optional industry.
+        db: Database session for caching.
 
     Returns:
         SuggestResponse with generated prompts and competitors/brands.
@@ -50,6 +131,26 @@ async def generate_suggestions(request: SuggestRequest) -> SuggestResponse:
     Raises:
         HTTPException: If suggestion generation fails.
     """
+    # Check cache first
+    cached = await get_cached_suggestion(
+        db=db,
+        brand=request.brand,
+        search_type=request.search_type,
+        industry=request.industry,
+    )
+
+    if cached:
+        print(f"[Suggest] Cache hit for '{request.brand}' ({request.search_type})")
+        # Update years in cached prompts (in case they were cached last year)
+        prompts = update_years_in_prompts(cached.prompts)
+        return SuggestResponse(
+            brand=request.brand,
+            prompts=prompts,
+            competitors=cached.competitors,
+        )
+
+    print(f"[Suggest] Cache miss for '{request.brand}' ({request.search_type}), generating...")
+
     try:
         service = OpenAIService()
     except ValueError as e:
@@ -72,6 +173,17 @@ async def generate_suggestions(request: SuggestRequest) -> SuggestResponse:
                 category=request.brand,
                 industry=request.industry,
             )
+
+            # Cache the result
+            await save_cached_suggestion(
+                db=db,
+                brand=request.brand,
+                search_type=request.search_type,
+                prompts=prompts,
+                competitors=brands,
+                industry=request.industry,
+            )
+
             return SuggestResponse(
                 brand=request.brand,
                 prompts=prompts,
@@ -89,6 +201,17 @@ async def generate_suggestions(request: SuggestRequest) -> SuggestResponse:
                 brand=request.brand,
                 industry=request.industry,
             )
+
+            # Cache the result
+            await save_cached_suggestion(
+                db=db,
+                brand=request.brand,
+                search_type=request.search_type,
+                prompts=prompts,
+                competitors=competitors,
+                industry=request.industry,
+            )
+
             return SuggestResponse(
                 brand=request.brand,
                 prompts=prompts,

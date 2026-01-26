@@ -38,6 +38,9 @@ class Result(Base):
         tokens: Number of tokens used.
         cost: Cost of this API call.
         sources: List of source URLs/citations from the response.
+        grounding_metadata: Grounding metadata from Gemini.
+        brand_sentiment: How the AI describes the brand (strong_endorsement, neutral_mention, conditional, negative_comparison, not_mentioned).
+        competitor_sentiments: Dict mapping competitor names to their sentiment classification.
         created_at: When the result was created.
         run: Parent run reference.
     """
@@ -111,6 +114,14 @@ class Result(Base):
         JSON,
         nullable=True,
     )
+    brand_sentiment: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    competitor_sentiments: Mapped[Optional[Dict[str, str]]] = mapped_column(
+        JSON,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -140,6 +151,21 @@ class Result(Base):
     RESPONSE_UNKNOWN = "unknown"
 
     VALID_RESPONSE_TYPES = {RESPONSE_LIST, RESPONSE_PROSE, RESPONSE_UNKNOWN}
+
+    # Valid sentiment values
+    SENTIMENT_STRONG_ENDORSEMENT = "strong_endorsement"
+    SENTIMENT_NEUTRAL_MENTION = "neutral_mention"
+    SENTIMENT_CONDITIONAL = "conditional"
+    SENTIMENT_NEGATIVE_COMPARISON = "negative_comparison"
+    SENTIMENT_NOT_MENTIONED = "not_mentioned"
+
+    VALID_SENTIMENTS = {
+        SENTIMENT_STRONG_ENDORSEMENT,
+        SENTIMENT_NEUTRAL_MENTION,
+        SENTIMENT_CONDITIONAL,
+        SENTIMENT_NEGATIVE_COMPARISON,
+        SENTIMENT_NOT_MENTIONED,
+    }
 
     def __repr__(self) -> str:
         """String representation of the result."""

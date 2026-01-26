@@ -141,6 +141,8 @@ class ResultItem(BaseModel):
     cost: Optional[float]
     sources: Optional[List[SourceItem]] = None
     grounding_metadata: Optional[GroundingMetadata] = None
+    brand_sentiment: Optional[str] = None
+    competitor_sentiments: Optional[Dict[str, str]] = None
     created_at: datetime
 
     class Config:

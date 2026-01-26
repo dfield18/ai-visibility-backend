@@ -302,11 +302,39 @@ class RunExecutor:
                 result.response_text, competitors
             )
             result.response_type = classify_response_type(result.response_text)
+
+            # Classify sentiment for brand and competitors using OpenAI
+            if self.openai_service and result.response_text:
+                try:
+                    sentiment_result = await self.openai_service.classify_brand_sentiment(
+                        response_text=result.response_text,
+                        brand=brand,
+                        competitors=competitors,
+                    )
+                    result.brand_sentiment = sentiment_result.get("brand_sentiment", "not_mentioned")
+                    result.competitor_sentiments = sentiment_result.get("competitor_sentiments", {})
+                except Exception as e:
+                    print(f"[Executor] Sentiment classification failed: {e}")
+                    # Fallback to simple detection
+                    result.brand_sentiment = "neutral_mention" if result.brand_mentioned else "not_mentioned"
+                    result.competitor_sentiments = {
+                        c: "neutral_mention" if c in (result.competitors_mentioned or []) else "not_mentioned"
+                        for c in competitors
+                    }
+            else:
+                # No OpenAI service available, use simple fallback
+                result.brand_sentiment = "neutral_mention" if result.brand_mentioned else "not_mentioned"
+                result.competitor_sentiments = {
+                    c: "neutral_mention" if c in (result.competitors_mentioned or []) else "not_mentioned"
+                    for c in competitors
+                }
+
             success = True
 
             print(
                 f"[Executor] Task completed: {provider} | "
                 f"brand_mentioned={result.brand_mentioned} | "
+                f"brand_sentiment={result.brand_sentiment} | "
                 f"cost=${cost:.4f}"
             )
 

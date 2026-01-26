@@ -585,6 +585,127 @@ class OpenAIService:
         }
         return known_competitors.get(brand.lower(), ["Competitor 1", "Competitor 2", "Competitor 3"])
 
+    async def classify_brand_sentiment(
+        self,
+        response_text: str,
+        brand: str,
+        competitors: List[str],
+    ) -> Dict[str, Any]:
+        """Classify how an AI response describes a brand and its competitors.
+
+        Uses GPT-4o-mini to analyze the sentiment/framing of brand mentions.
+
+        Args:
+            response_text: The AI-generated response text to analyze.
+            brand: The primary brand to classify.
+            competitors: List of competitor brands to also classify.
+
+        Returns:
+            Dict with 'brand_sentiment' and 'competitor_sentiments' keys.
+            brand_sentiment is one of: strong_endorsement, neutral_mention, conditional, negative_comparison, not_mentioned
+            competitor_sentiments is a dict mapping competitor name to sentiment.
+        """
+        if not response_text or not response_text.strip():
+            return {
+                "brand_sentiment": "not_mentioned",
+                "competitor_sentiments": {c: "not_mentioned" for c in competitors},
+            }
+
+        # Build the list of all brands to analyze
+        all_brands = [brand] + competitors
+
+        system_prompt = """You are a brand sentiment classifier. Analyze how AI responses describe brands.
+
+For each brand mentioned (or not mentioned) in the text, classify the sentiment as one of:
+- strong_endorsement: Brand is clearly recommended, praised, or positioned as a top choice
+- neutral_mention: Brand is mentioned factually without strong positive or negative framing
+- conditional: Brand is mentioned with caveats, limitations, or "it depends" framing
+- negative_comparison: Brand is mentioned unfavorably or positioned worse than competitors
+- not_mentioned: Brand does not appear in the response
+
+Return ONLY a valid JSON object with no markdown formatting."""
+
+        brands_list = ", ".join(f'"{b}"' for b in all_brands)
+        user_prompt = f"""Analyze this AI response and classify how it describes each brand.
+
+RESPONSE TEXT:
+{response_text[:4000]}
+
+BRANDS TO CLASSIFY: {brands_list}
+
+Return a JSON object where keys are brand names and values are sentiment classifications.
+Example format:
+{{"Nike": "strong_endorsement", "Adidas": "neutral_mention", "Puma": "not_mentioned"}}
+
+Classify ALL brands listed, including those not mentioned (use "not_mentioned" for those)."""
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.1,  # Low temperature for consistent classification
+            )
+
+            # Parse the response
+            result_text = response.text.strip()
+            # Remove markdown code blocks if present
+            result_text = re.sub(r"```json?\s*", "", result_text)
+            result_text = re.sub(r"```\s*", "", result_text)
+            result_text = result_text.strip()
+
+            sentiments = json.loads(result_text)
+
+            # Extract brand sentiment (case-insensitive lookup)
+            brand_sentiment = "not_mentioned"
+            for key, value in sentiments.items():
+                if key.lower() == brand.lower():
+                    brand_sentiment = value
+                    break
+
+            # Extract competitor sentiments
+            competitor_sentiments = {}
+            for comp in competitors:
+                comp_sentiment = "not_mentioned"
+                for key, value in sentiments.items():
+                    if key.lower() == comp.lower():
+                        comp_sentiment = value
+                        break
+                competitor_sentiments[comp] = comp_sentiment
+
+            # Validate sentiment values
+            valid_sentiments = {
+                "strong_endorsement",
+                "neutral_mention",
+                "conditional",
+                "negative_comparison",
+                "not_mentioned",
+            }
+
+            if brand_sentiment not in valid_sentiments:
+                brand_sentiment = "neutral_mention" if brand.lower() in response_text.lower() else "not_mentioned"
+
+            for comp, sent in competitor_sentiments.items():
+                if sent not in valid_sentiments:
+                    competitor_sentiments[comp] = "neutral_mention" if comp.lower() in response_text.lower() else "not_mentioned"
+
+            return {
+                "brand_sentiment": brand_sentiment,
+                "competitor_sentiments": competitor_sentiments,
+            }
+
+        except Exception as e:
+            print(f"[OpenAI] Sentiment classification failed: {e}")
+            # Fallback: simple mention detection
+            brand_sentiment = "neutral_mention" if brand.lower() in response_text.lower() else "not_mentioned"
+            competitor_sentiments = {}
+            for comp in competitors:
+                competitor_sentiments[comp] = "neutral_mention" if comp.lower() in response_text.lower() else "not_mentioned"
+
+            return {
+                "brand_sentiment": brand_sentiment,
+                "competitor_sentiments": competitor_sentiments,
+            }
+
     async def generate_results_summary(
         self,
         brand: str,
