@@ -26,6 +26,21 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str
+
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def convert_database_url(cls, v: str) -> str:
+        """Convert database URL to asyncpg format.
+
+        Railway and other providers use postgres:// or postgresql://
+        but asyncpg requires postgresql+asyncpg://
+        """
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://") and "+asyncpg" not in v:
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
