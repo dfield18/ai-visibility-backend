@@ -63,6 +63,18 @@ try:
     else:
         print("competitor_sentiments column already exists")
 
+    # Check and add all_brands_mentioned column
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'results' AND column_name = 'all_brands_mentioned'
+    """)
+    if not cur.fetchone():
+        print("Adding all_brands_mentioned column...")
+        cur.execute("ALTER TABLE results ADD COLUMN all_brands_mentioned JSONB")
+        print("Added all_brands_mentioned column")
+    else:
+        print("all_brands_mentioned column already exists")
+
     # Check and create cached_suggestions table
     cur.execute("""
         SELECT table_name FROM information_schema.tables

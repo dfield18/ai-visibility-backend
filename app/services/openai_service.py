@@ -706,6 +706,85 @@ Classify ALL brands listed, including those not mentioned (use "not_mentioned" f
                 "competitor_sentiments": competitor_sentiments,
             }
 
+    async def extract_all_brands(
+        self,
+        response_text: str,
+        primary_brand: str,
+    ) -> List[str]:
+        """Extract all brand/company names mentioned in a response.
+
+        Uses GPT-4o-mini to identify all brand and company names in the text,
+        not just the tracked competitors.
+
+        Args:
+            response_text: The AI-generated response text to analyze.
+            primary_brand: The primary brand being tracked (to ensure it's included).
+
+        Returns:
+            List of brand/company names found in the response, in order of appearance.
+        """
+        if not response_text or not response_text.strip():
+            return []
+
+        system_prompt = """You are a brand/company name extractor. Your job is to identify all brand names, company names, product names, and service names mentioned in the text.
+
+Rules:
+- Include all commercial brands, companies, products, and services
+- Preserve the exact capitalization/spelling used in the text
+- Return names in the order they appear in the text
+- Do NOT include generic terms (e.g., "smartphone", "search engine")
+- Do NOT include people's names unless they are brand names
+- Return ONLY a JSON array of strings, no other text"""
+
+        user_prompt = f"""Extract all brand/company/product names from this text:
+
+{response_text[:4000]}
+
+Return a JSON array of brand names in order of appearance. Example: ["Apple", "Samsung", "Google Pixel"]"""
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.1,
+            )
+
+            result_text = response.text.strip()
+            # Remove markdown code blocks if present
+            result_text = re.sub(r"```json?\s*", "", result_text)
+            result_text = re.sub(r"```\s*", "", result_text)
+            result_text = result_text.strip()
+
+            brands = json.loads(result_text)
+
+            if not isinstance(brands, list):
+                return []
+
+            # Ensure primary brand is included if it appears in text
+            if primary_brand and primary_brand.lower() in response_text.lower():
+                primary_found = any(b.lower() == primary_brand.lower() for b in brands)
+                if not primary_found:
+                    # Find position of primary brand to insert in correct order
+                    primary_pos = response_text.lower().find(primary_brand.lower())
+                    inserted = False
+                    for i, b in enumerate(brands):
+                        b_pos = response_text.lower().find(b.lower())
+                        if b_pos > primary_pos:
+                            brands.insert(i, primary_brand)
+                            inserted = True
+                            break
+                    if not inserted:
+                        brands.append(primary_brand)
+
+            return brands
+
+        except Exception as e:
+            print(f"[OpenAI] Brand extraction failed: {e}")
+            # Fallback: just return primary brand if mentioned
+            if primary_brand and primary_brand.lower() in response_text.lower():
+                return [primary_brand]
+            return []
+
     async def generate_results_summary(
         self,
         brand: str,

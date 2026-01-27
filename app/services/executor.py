@@ -303,7 +303,7 @@ class RunExecutor:
             )
             result.response_type = classify_response_type(result.response_text)
 
-            # Classify sentiment for brand and competitors using OpenAI
+            # Classify sentiment and extract all brands using OpenAI
             if self.openai_service and result.response_text:
                 try:
                     sentiment_result = await self.openai_service.classify_brand_sentiment(
@@ -321,6 +321,18 @@ class RunExecutor:
                         c: "neutral_mention" if c in (result.competitors_mentioned or []) else "not_mentioned"
                         for c in competitors
                     }
+
+                # Extract all brand mentions for position calculation
+                try:
+                    all_brands = await self.openai_service.extract_all_brands(
+                        response_text=result.response_text,
+                        primary_brand=brand,
+                    )
+                    result.all_brands_mentioned = all_brands
+                except Exception as e:
+                    print(f"[Executor] Brand extraction failed: {e}")
+                    # Fallback to tracked brands only
+                    result.all_brands_mentioned = [brand] + (result.competitors_mentioned or []) if result.brand_mentioned else (result.competitors_mentioned or [])
             else:
                 # No OpenAI service available, use simple fallback
                 result.brand_sentiment = "neutral_mention" if result.brand_mentioned else "not_mentioned"
@@ -328,6 +340,7 @@ class RunExecutor:
                     c: "neutral_mention" if c in (result.competitors_mentioned or []) else "not_mentioned"
                     for c in competitors
                 }
+                result.all_brands_mentioned = [brand] + (result.competitors_mentioned or []) if result.brand_mentioned else (result.competitors_mentioned or [])
 
             success = True
 

@@ -41,6 +41,7 @@ class Result(Base):
         grounding_metadata: Grounding metadata from Gemini.
         brand_sentiment: How the AI describes the brand (strong_endorsement, neutral_mention, conditional, negative_comparison, not_mentioned).
         competitor_sentiments: Dict mapping competitor names to their sentiment classification.
+        all_brands_mentioned: List of all brand/company names found in the response, in order of appearance.
         created_at: When the result was created.
         run: Parent run reference.
     """
@@ -119,6 +120,10 @@ class Result(Base):
         nullable=True,
     )
     competitor_sentiments: Mapped[Optional[Dict[str, str]]] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    all_brands_mentioned: Mapped[Optional[List[str]]] = mapped_column(
         JSON,
         nullable=True,
     )
