@@ -694,11 +694,11 @@ Classify ALL brands listed. If a brand appears under a different name variation 
             }
 
             if brand_sentiment not in valid_sentiments:
-                brand_sentiment = "neutral_mention" if self._brand_in_text(brand, response_text) else "not_mentioned"
+                brand_sentiment = "neutral_mention" if brand.lower() in response_text.lower() else "not_mentioned"
 
             for comp, sent in competitor_sentiments.items():
                 if sent not in valid_sentiments:
-                    competitor_sentiments[comp] = "neutral_mention" if self._brand_in_text(comp, response_text) else "not_mentioned"
+                    competitor_sentiments[comp] = "neutral_mention" if comp.lower() in response_text.lower() else "not_mentioned"
 
             return {
                 "brand_sentiment": brand_sentiment,
@@ -707,130 +707,88 @@ Classify ALL brands listed. If a brand appears under a different name variation 
 
         except Exception as e:
             print(f"[OpenAI] Sentiment classification failed: {e}")
-            # Fallback: simple mention detection with variation support
-            brand_sentiment = "neutral_mention" if self._brand_in_text(brand, response_text) else "not_mentioned"
+            # Fallback: simple mention detection
+            brand_sentiment = "neutral_mention" if brand.lower() in response_text.lower() else "not_mentioned"
             competitor_sentiments = {}
             for comp in competitors:
-                competitor_sentiments[comp] = "neutral_mention" if self._brand_in_text(comp, response_text) else "not_mentioned"
+                competitor_sentiments[comp] = "neutral_mention" if comp.lower() in response_text.lower() else "not_mentioned"
 
             return {
                 "brand_sentiment": brand_sentiment,
                 "competitor_sentiments": competitor_sentiments,
             }
 
-    def _normalize_brand_name(self, brand: str) -> str:
-        """Normalize brand name to canonical form.
+    async def _deduplicate_brands(self, brands: List[str]) -> List[str]:
+        """Use OpenAI to identify and merge brand name variations.
 
-        Handles common variations like:
-        - Disney+ / Disney Plus -> Disney+
-        - Hulu + Live TV / Hulu Live -> Hulu
-        - HBO Max / HBOMax -> HBO Max
+        Takes a list of brand names and returns a deduplicated list where
+        variations of the same brand are merged into a single canonical name.
+
+        Args:
+            brands: List of brand names that may contain duplicates/variations.
+
+        Returns:
+            Deduplicated list with canonical brand names, preserving order.
         """
-        brand_lower = brand.lower().strip()
+        if not brands or len(brands) <= 1:
+            return brands
 
-        # Define canonical mappings (lowercase key -> canonical name)
-        canonical_map = {
-            # Disney variations
-            "disney plus": "Disney+",
-            "disney+": "Disney+",
-            "disneyplus": "Disney+",
-            # Hulu variations
-            "hulu + live tv": "Hulu",
-            "hulu live tv": "Hulu",
-            "hulu + live": "Hulu",
-            "hulu live": "Hulu",
-            "hulu": "Hulu",
-            # HBO variations
-            "hbo max": "HBO Max",
-            "hbomax": "HBO Max",
-            "max": "Max",
-            # YouTube variations
-            "youtube tv": "YouTube TV",
-            "youtubetv": "YouTube TV",
-            "youtube premium": "YouTube Premium",
-            "youtube music": "YouTube Music",
-            "youtube": "YouTube",
-            # Apple variations
-            "apple tv+": "Apple TV+",
-            "apple tv plus": "Apple TV+",
-            "appletv+": "Apple TV+",
-            "apple music": "Apple Music",
-            # Amazon variations
-            "amazon prime video": "Prime Video",
-            "prime video": "Prime Video",
-            "amazon prime": "Amazon Prime",
-            # Paramount variations
-            "paramount+": "Paramount+",
-            "paramount plus": "Paramount+",
-            "paramountplus": "Paramount+",
-            # Peacock variations
-            "peacock premium": "Peacock",
-            "peacock": "Peacock",
-            # ESPN variations
-            "espn+": "ESPN+",
-            "espn plus": "ESPN+",
-            # Netflix (usually consistent but just in case)
-            "netflix": "Netflix",
-        }
+        # Build the prompt
+        brands_json = json.dumps(brands)
 
-        # Check for exact match first
-        if brand_lower in canonical_map:
-            return canonical_map[brand_lower]
+        system_prompt = """You are a brand name deduplication expert. Your job is to identify when multiple brand names in a list refer to the same company/product and merge them.
 
-        # Check for partial matches (e.g., "Disney+ Hotstar" should still be normalized)
-        for key, canonical in canonical_map.items():
-            if brand_lower.startswith(key) or key.startswith(brand_lower):
-                # Only return canonical if it's a close match
-                if len(brand_lower) <= len(key) + 5:
-                    return canonical
+Rules:
+- Identify brand name variations (e.g., "Disney+" and "Disney Plus" are the same)
+- Identify sub-brands vs parent brands (e.g., "Hulu + Live TV" is a variant of "Hulu")
+- Keep the most commonly used/canonical version of each brand name
+- Preserve the order based on first appearance
+- Return ONLY a JSON array of deduplicated brand names
 
-        # Return original with proper capitalization if no mapping found
-        return brand
+Examples of variations to merge:
+- "Disney+", "Disney Plus", "DisneyPlus" -> "Disney+"
+- "Hulu", "Hulu + Live TV", "Hulu Live" -> "Hulu"
+- "HBO Max", "HBOMax" -> "HBO Max"
+- "YouTube TV", "YouTubeTV" -> "YouTube TV"
+- "Apple TV+", "Apple TV Plus" -> "Apple TV+"
+- "Paramount+", "Paramount Plus" -> "Paramount+"
+- "ESPN+", "ESPN Plus" -> "ESPN+"
+- "Prime Video", "Amazon Prime Video" -> "Prime Video"
 
-    def _get_brand_variations(self, brand: str) -> List[str]:
-        """Get all known variations of a brand name for text matching."""
-        brand_lower = brand.lower().strip()
+But keep distinct products separate:
+- "YouTube" and "YouTube TV" are different products
+- "Apple Music" and "Apple TV+" are different products
+- "Amazon" and "Prime Video" are different products"""
 
-        # Map canonical names to their variations
-        variation_map = {
-            "disney+": ["disney+", "disney plus", "disneyplus"],
-            "hulu": ["hulu", "hulu + live tv", "hulu live tv", "hulu + live", "hulu live"],
-            "hbo max": ["hbo max", "hbomax", "hbo"],
-            "max": ["max", "hbo max", "hbomax"],
-            "youtube tv": ["youtube tv", "youtubetv"],
-            "youtube": ["youtube", "youtube premium", "youtube music"],
-            "apple tv+": ["apple tv+", "apple tv plus", "appletv+", "apple tv"],
-            "apple music": ["apple music"],
-            "paramount+": ["paramount+", "paramount plus", "paramountplus"],
-            "espn+": ["espn+", "espn plus"],
-            "prime video": ["prime video", "amazon prime video"],
-            "amazon prime": ["amazon prime", "prime"],
-            "peacock": ["peacock", "peacock premium"],
-            "netflix": ["netflix"],
-        }
+        user_prompt = f"""Deduplicate this list of brand names, merging variations of the same brand:
 
-        # Find variations for this brand
-        for canonical, variations in variation_map.items():
-            if brand_lower in variations or brand_lower == canonical:
-                return variations
+{brands_json}
 
-        # If no predefined variations, return just the brand name
-        return [brand_lower]
+Return a JSON array with deduplicated brand names in order of first appearance."""
 
-    def _brand_in_text(self, brand: str, text: str) -> bool:
-        """Check if a brand (or any of its variations) appears in text."""
-        text_lower = text.lower()
-        variations = self._get_brand_variations(brand)
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.1,
+            )
 
-        for variation in variations:
-            if variation in text_lower:
-                return True
+            result_text = response.text.strip()
+            # Remove markdown code blocks if present
+            result_text = re.sub(r"```json?\s*", "", result_text)
+            result_text = re.sub(r"```\s*", "", result_text)
+            result_text = result_text.strip()
 
-        # Also check the original brand name
-        if brand.lower() in text_lower:
-            return True
+            deduplicated = json.loads(result_text)
 
-        return False
+            if isinstance(deduplicated, list) and len(deduplicated) > 0:
+                return deduplicated
+
+            return brands
+
+        except Exception as e:
+            print(f"[OpenAI] Brand deduplication failed: {e}")
+            return brands
 
     async def extract_all_brands(
         self,
@@ -856,16 +814,9 @@ Classify ALL brands listed. If a brand appears under a different name variation 
 
 Rules:
 - Include all commercial brands, companies, products, and services
-- Use canonical/primary brand names when possible:
-  - Use "Disney+" not "Disney Plus"
-  - Use "Hulu" not "Hulu + Live TV" or "Hulu Live"
-  - Use "HBO Max" not "HBOMax"
-  - Use "YouTube TV" not "YouTubeTV"
-  - Use "Apple TV+" not "Apple TV Plus"
-  - Use "Paramount+" not "Paramount Plus"
-  - Use "ESPN+" not "ESPN Plus"
+- Preserve the exact name as it appears in the text
 - Return names in the order they FIRST appear in the text
-- Do NOT include the same brand multiple times even if mentioned with different variations
+- Include all variations even if they refer to the same brand (deduplication happens separately)
 - Do NOT include generic terms (e.g., "smartphone", "search engine")
 - Do NOT include people's names unless they are brand names
 - Return ONLY a JSON array of strings, no other text"""
@@ -874,7 +825,7 @@ Rules:
 
 {response_text[:4000]}
 
-Return a JSON array of brand names in order of first appearance. Use canonical brand names (e.g., "Disney+" not "Disney Plus"). Example: ["Apple", "Samsung", "Google Pixel"]"""
+Return a JSON array of brand names in order of first appearance. Example: ["Apple", "Samsung", "Google Pixel"]"""
 
         try:
             response = await self.chat_completion(
@@ -894,25 +845,21 @@ Return a JSON array of brand names in order of first appearance. Use canonical b
             if not isinstance(brands, list):
                 return []
 
-            # Normalize brand names and deduplicate (preserve order)
-            normalized_brands = []
-            seen_normalized = set()
-            for brand in brands:
-                if not isinstance(brand, str):
-                    continue
-                normalized = self._normalize_brand_name(brand)
-                normalized_lower = normalized.lower()
-                if normalized_lower not in seen_normalized:
-                    seen_normalized.add(normalized_lower)
-                    normalized_brands.append(normalized)
+            # Filter out non-strings
+            brands = [b for b in brands if isinstance(b, str)]
 
-            brands = normalized_brands
+            # Use OpenAI to deduplicate brand variations
+            if len(brands) > 1:
+                brands = await self._deduplicate_brands(brands)
 
             # Ensure primary brand is included if it appears in text
             if primary_brand and primary_brand.lower() in response_text.lower():
-                # Normalize the primary brand too
-                normalized_primary = self._normalize_brand_name(primary_brand)
-                primary_found = any(b.lower() == normalized_primary.lower() for b in brands)
+                primary_found = any(
+                    b.lower() == primary_brand.lower() or
+                    primary_brand.lower() in b.lower() or
+                    b.lower() in primary_brand.lower()
+                    for b in brands
+                )
                 if not primary_found:
                     # Find position of primary brand to insert in correct order
                     primary_pos = response_text.lower().find(primary_brand.lower())
@@ -920,11 +867,11 @@ Return a JSON array of brand names in order of first appearance. Use canonical b
                     for i, b in enumerate(brands):
                         b_pos = response_text.lower().find(b.lower())
                         if b_pos > primary_pos:
-                            brands.insert(i, normalized_primary)
+                            brands.insert(i, primary_brand)
                             inserted = True
                             break
                     if not inserted:
-                        brands.append(normalized_primary)
+                        brands.append(primary_brand)
 
             return brands
 
