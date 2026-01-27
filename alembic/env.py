@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.database import Base
 
 # Import all models to ensure they're registered with Base.metadata
-from app.models import Session, Run, Result  # noqa: F401
+from app.models import Session, Run, Result, CachedSuggestion  # noqa: F401
 
 # Alembic Config object
 config = context.config
