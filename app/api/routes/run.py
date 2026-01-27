@@ -181,6 +181,8 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
             cost=float(r.cost) if r.cost else None,
             sources=r.sources,
             grounding_metadata=r.grounding_metadata,
+            brand_sentiment=r.brand_sentiment,
+            competitor_sentiments=r.competitor_sentiments,
             created_at=r.created_at,
         )
         for r in sorted(run.results, key=lambda x: x.created_at)
