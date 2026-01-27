@@ -31,7 +31,7 @@ class GeminiResponse:
         text: str,
         tokens_input: int,
         tokens_output: int,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         sources: Optional[List[Dict[str, str]]] = None,
         grounding_metadata: Optional[Dict[str, Any]] = None,
     ):
@@ -41,9 +41,9 @@ class GeminiResponse:
         self.model = model
         self.sources = sources or []
         self.grounding_metadata = grounding_metadata
-        # Gemini Flash pricing: $0.000075/1K input, $0.0003/1K output
+        # Gemini 2.5 Flash pricing: $0.15/1M input, $0.60/1M output (text)
         # Grounding adds ~$35/1K requests
-        self.cost = (tokens_input * 0.000075 / 1000) + (tokens_output * 0.0003 / 1000)
+        self.cost = (tokens_input * 0.00015 / 1000) + (tokens_output * 0.0006 / 1000)
 
 
 class GeminiService:
@@ -54,7 +54,7 @@ class GeminiService:
     """
 
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-2.5-flash"
 
     def __init__(self):
         """Initialize the Gemini service."""
