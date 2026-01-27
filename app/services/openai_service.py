@@ -901,62 +901,109 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
         entity_type = "category" if search_type == "category" else "brand"
 
         system_prompt = (
-            "You are an AI visibility analyst. Your job is to analyze how brands appear "
-            "in AI-generated responses across different AI providers. "
+            "You are an AI visibility analyst. Your role is to analyze how brands appear "
+            "in AI-generated responses across major AI providers.\n\n"
             "You produce executive-ready summaries that are clear, accurate, and actionable. "
-            "You prioritize correct interpretation of quantitative data, scannability, "
-            "and business-relevant insights over cautious or academic language."
+            "You prioritize correct interpretation of quantitative data, comparative clarity, "
+            "and business-relevant insights over cautious or academic language.\n\n"
+            "You write for brand, SEO, growth, or product leaders, not researchers. "
+            "Your summaries should read like a concise analyst brief suitable for a product "
+            "dashboard or internal intelligence report."
         )
 
-        user_prompt = f"""
-Analyze the following AI visibility data for the {entity_type} "{brand}" and produce
-an executive summary suitable for a product dashboard or brand intelligence report.
+        user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary suitable for a product dashboard or brand intelligence report.
 
-The data shows how multiple AI providers (e.g., OpenAI ChatGPT, Google Gemini,
-Anthropic Claude, Perplexity, Google AI Overviews) responded to relevant prompts.
-Each result includes whether {brand} was mentioned, which competitors appeared,
-and any cited sources.
+The data shows how multiple AI providers (e.g., OpenAI ChatGPT, Google Gemini, Anthropic Claude, Perplexity, Google AI Overviews) responded to relevant prompts.
 
-DATA:
+Each result may include:
+
+Whether {brand} was mentioned
+
+The position or rank where it appeared (if applicable)
+
+Which competitors appeared
+
+Sentiment or framing of the mention (positive, neutral, negative)
+
+Any cited sources
+
+DATA
 {results_data}
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (STRICT)
 
-1. Begin with a **single bolded headline sentence** that clearly states the dominant
-   conclusion about {brand}'s AI visibility (e.g., strong, moderate, weak, or provider-specific).
+Begin with one bolded headline sentence that states the dominant conclusion about {brand}'s AI visibility
+– The headline MUST reflect the overall quantitative pattern
+– It should also name the primary driver (e.g., strong top-rank placement, broad provider coverage, or a specific provider gap)
 
-2. Follow with **4–5 short paragraph blocks**, separated by line breaks.
-   Each paragraph should begin with a **bolded lead-in phrase** (not bullet points)
-   that guides the reader.
+Follow with 4–5 short paragraphs, separated by line breaks.
+Each paragraph MUST begin with a bolded lead-in phrase (not bullets).
 
-CONTENT TO COVER:
-- **Overall visibility**: How frequently {brand} is mentioned or recommended across AI providers
-- **Provider differences**: Any meaningful over- or under-representation by specific providers
-- **Competitive context**: Which competitors appear most often and how {brand} compares
-- **Source patterns**: Commonly cited source types or notable gaps in sourcing
-- **Actionable takeaway**: One concrete, practical recommendation to improve AI visibility
+CONTENT TO COVER (ALL REQUIRED)
 
-INTERPRETATION GUIDANCE (CRITICAL):
-- Determine visibility strength based on the proportion of providers mentioning {brand},
-  relative to the total number of providers analyzed (which may range from 1 to 6).
-- Use the following framing guidelines:
-  • Presence in a clear majority of responses (≈70% or more) = **strong AI visibility**
-  • Presence in roughly half of responses = **moderate AI visibility**
-  • Presence in a small minority of responses = **weak AI visibility**
-- Do NOT describe visibility as "uneven", "mixed", or "inconsistent" if the brand appears
-  in a strong majority of responses.
-- Absence from a single provider should be framed as a **specific gap or opportunity**,
-  not as overall inconsistency.
-- Overall tone and headline should reflect the **dominant quantitative pattern**, not exceptions.
+Overall visibility
+How frequently {brand} is mentioned across AI providers and prompts, and whether this represents strong, moderate, or weak visibility overall.
 
-STYLE AND FORMATTING RULES:
-- Do NOT use bullet points or numbered lists in the output
-- Use line breaks between paragraphs for readability
-- Avoid hedging or softening language (e.g., "may indicate", "appears to be", "somewhat")
-- Avoid downplaying strong performance with qualifiers like "only" or "moderate" when data supports strength
-- Be specific, comparative, and decisive
-- Write for a brand, SEO, or growth lead—not an academic audience
-- Do not restate the prompt or describe the methodology
+Ranking quality
+Whether {brand} is typically positioned as a leading recommendation (e.g., first or top-3) versus appearing later as an alternative.
+Distinguish clearly between consistent high placement and mere inclusion.
+
+Provider differences
+Meaningful over- or under-performance by specific AI providers.
+Absence from a single provider should be framed as a specific gap or opportunity, not overall inconsistency.
+
+Competitive context
+Which competitors appear most often, who most frequently outranks {brand}, and whether {brand} is framed as a primary choice or secondary option.
+
+Sentiment and framing
+The dominant sentiment toward {brand} (positive, neutral, negative) and how the brand is framed (e.g., category leader, alternative, niche, legacy).
+Note any providers or prompt types where sentiment materially differs.
+
+Source patterns
+Commonly cited source types (e.g., major publishers, reviews, comparison sites, UGC) and any notable sourcing gaps that may affect visibility.
+
+Actionable takeaway
+One concrete, practical recommendation tied directly to the weakest quantified dimension (e.g., provider gap, ranking depth, sentiment, or competitive exclusion).
+
+INTERPRETATION GUIDANCE (CRITICAL)
+
+Determine visibility strength based on the proportion of AI providers mentioning {brand}, relative to the total number analyzed (typically 1–6).
+
+Use these framing thresholds:
+
+Presence in a clear majority of responses (≈70% or more) → strong AI visibility
+
+Presence in roughly half of responses → moderate AI visibility
+
+Presence in a small minority of responses → weak AI visibility
+
+Do NOT describe visibility as "uneven," "mixed," or "inconsistent" if the brand appears in a strong majority of responses.
+
+When ranking data is available:
+
+Explicitly distinguish leading placement from lower-rank inclusion
+
+A brand frequently mentioned but rarely ranked first should not be framed as category-leading.
+
+If under-performance or absence is concentrated in high-intent prompts (e.g., "best," "top," "alternatives"), frame this as a conversion-relevant gap, not a neutral omission.
+
+Overall tone and headline must reflect the dominant quantitative signal, not edge cases.
+
+STYLE AND FORMATTING RULES (STRICT)
+
+Do NOT use bullet points or numbered lists in the output
+
+Use line breaks between paragraphs for readability
+
+Avoid hedging language (e.g., "may indicate," "appears to be," "somewhat")
+
+Avoid vague intensifiers (e.g., "notably," "significantly") unless paired with a clear data reference
+
+Do not downplay strong performance with qualifiers when data supports strength
+
+Be specific, comparative, and decisive
+
+Do NOT restate the prompt or describe methodology
 """
 
         try:
