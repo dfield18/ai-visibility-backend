@@ -131,13 +131,20 @@ async def generate_suggestions(
     Raises:
         HTTPException: If suggestion generation fails.
     """
-    # Check cache first
-    cached = await get_cached_suggestion(
-        db=db,
-        brand=request.brand,
-        search_type=request.search_type,
-        industry=request.industry,
-    )
+    # Check cache first (gracefully handle if table doesn't exist yet)
+    cached = None
+    cache_available = True
+    try:
+        cached = await get_cached_suggestion(
+            db=db,
+            brand=request.brand,
+            search_type=request.search_type,
+            industry=request.industry,
+        )
+    except Exception as e:
+        # Cache table might not exist yet - continue without caching
+        print(f"[Suggest] Cache lookup failed (table may not exist): {e}")
+        cache_available = False
 
     if cached:
         print(f"[Suggest] Cache hit for '{request.brand}' ({request.search_type})")
@@ -174,15 +181,19 @@ async def generate_suggestions(
                 industry=request.industry,
             )
 
-            # Cache the result
-            await save_cached_suggestion(
-                db=db,
-                brand=request.brand,
-                search_type=request.search_type,
-                prompts=prompts,
-                competitors=brands,
-                industry=request.industry,
-            )
+            # Cache the result (if cache is available)
+            if cache_available:
+                try:
+                    await save_cached_suggestion(
+                        db=db,
+                        brand=request.brand,
+                        search_type=request.search_type,
+                        prompts=prompts,
+                        competitors=brands,
+                        industry=request.industry,
+                    )
+                except Exception as e:
+                    print(f"[Suggest] Failed to cache result: {e}")
 
             return SuggestResponse(
                 brand=request.brand,
@@ -202,15 +213,19 @@ async def generate_suggestions(
                 industry=request.industry,
             )
 
-            # Cache the result
-            await save_cached_suggestion(
-                db=db,
-                brand=request.brand,
-                search_type=request.search_type,
-                prompts=prompts,
-                competitors=competitors,
-                industry=request.industry,
-            )
+            # Cache the result (if cache is available)
+            if cache_available:
+                try:
+                    await save_cached_suggestion(
+                        db=db,
+                        brand=request.brand,
+                        search_type=request.search_type,
+                        prompts=prompts,
+                        competitors=competitors,
+                        industry=request.industry,
+                    )
+                except Exception as e:
+                    print(f"[Suggest] Failed to cache result: {e}")
 
             return SuggestResponse(
                 brand=request.brand,
