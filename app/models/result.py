@@ -159,6 +159,7 @@ class Result(Base):
 
     # Valid sentiment values
     SENTIMENT_STRONG_ENDORSEMENT = "strong_endorsement"
+    SENTIMENT_POSITIVE_ENDORSEMENT = "positive_endorsement"
     SENTIMENT_NEUTRAL_MENTION = "neutral_mention"
     SENTIMENT_CONDITIONAL = "conditional"
     SENTIMENT_NEGATIVE_COMPARISON = "negative_comparison"
@@ -166,6 +167,7 @@ class Result(Base):
 
     VALID_SENTIMENTS = {
         SENTIMENT_STRONG_ENDORSEMENT,
+        SENTIMENT_POSITIVE_ENDORSEMENT,
         SENTIMENT_NEUTRAL_MENTION,
         SENTIMENT_CONDITIONAL,
         SENTIMENT_NEGATIVE_COMPARISON,

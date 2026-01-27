@@ -618,6 +618,7 @@ class OpenAIService:
 
 For each brand mentioned (or not mentioned) in the text, classify the sentiment as one of:
 - strong_endorsement: Brand is clearly recommended, praised, or positioned as a top choice
+- positive_endorsement: Brand is mentioned positively in some way with no qualifiers
 - neutral_mention: Brand is mentioned factually without strong positive or negative framing
 - conditional: Brand is mentioned with caveats, limitations, or "it depends" framing
 - negative_comparison: Brand is mentioned unfavorably or positioned worse than competitors
@@ -675,6 +676,7 @@ Classify ALL brands listed, including those not mentioned (use "not_mentioned" f
             # Validate sentiment values
             valid_sentiments = {
                 "strong_endorsement",
+                "positive_endorsement",
                 "neutral_mention",
                 "conditional",
                 "negative_comparison",
