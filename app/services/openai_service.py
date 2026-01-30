@@ -1016,3 +1016,86 @@ Do NOT restate the prompt or describe methodology
         except Exception as e:
             print(f"[OpenAI] Summary generation failed: {e}")
             return ""
+
+    async def categorize_domains(
+        self,
+        domains: List[str],
+    ) -> Dict[str, str]:
+        """Categorize website domains into content categories using GPT-4o-mini.
+
+        Args:
+            domains: List of domain names to categorize.
+
+        Returns:
+            Dict mapping domain to category string.
+        """
+        if not domains:
+            return {}
+
+        # Use batch processing for efficiency - process up to 50 domains at once
+        domains_to_process = domains[:50]
+
+        system_prompt = """You are a website categorization expert. Categorize each domain into exactly ONE of these categories:
+
+- Social Media: Social networks, messaging platforms (reddit, twitter, facebook, instagram, linkedin, discord, etc.)
+- Video: Video hosting, streaming, tutorials (youtube, vimeo, twitch, netflix, etc.)
+- Reference: Encyclopedias, academic sources, wikis, health info (wikipedia, britannica, webmd, mayoclinic, etc.)
+- News & Media: News outlets, magazines, journalism (nytimes, bbc, cnn, forbes, techcrunch, wired, etc.)
+- E-commerce: Shopping, marketplaces, retail (amazon, ebay, walmart, target, shopify stores, etc.)
+- Reviews: Review sites, comparison sites, ratings (yelp, tripadvisor, trustpilot, g2, capterra, etc.)
+- Forums & Q&A: Discussion forums, Q&A sites (stackoverflow, quora, hackernews, specialized forums, etc.)
+- Government: Government sites, official institutions (.gov, official regulatory bodies, etc.)
+- Blogs: Personal blogs, opinion sites, independent content creators
+- Travel: Travel booking, airlines, hotels, travel guides (expedia, booking.com, tripadvisor travel content, airline sites)
+- Finance: Financial services, banking, investment sites (banks, investment platforms, financial news)
+- Other: Sites that don't fit other categories
+
+Rules:
+- Use ONLY the exact category names listed above
+- Consider the PRIMARY purpose of the site, not edge cases
+- For sites like "thepointsguy.com" → Travel (travel/points/miles content)
+- For sites like "nerdwallet.com" → Finance (financial advice/comparisons)
+- For sites like "worldairlineawards.com" → Travel (airline industry awards)
+- For review/comparison sites specific to an industry, use the industry category if it's specialized
+- Return ONLY a JSON object mapping domain to category"""
+
+        domains_json = json.dumps(domains_to_process)
+        user_prompt = f"""Categorize each of these domains into the appropriate category:
+
+{domains_json}
+
+Return a JSON object where keys are the exact domain names and values are the category names.
+Example: {{"reddit.com": "Social Media", "nytimes.com": "News & Media", "thepointsguy.com": "Travel"}}"""
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.1,  # Low temperature for consistent categorization
+            )
+
+            result_text = response.text.strip()
+            # Remove markdown code blocks if present
+            result_text = re.sub(r"```json?\s*", "", result_text)
+            result_text = re.sub(r"```\s*", "", result_text)
+            result_text = result_text.strip()
+
+            categories = json.loads(result_text)
+
+            if isinstance(categories, dict):
+                # Validate category values
+                valid_categories = {
+                    "Social Media", "Video", "Reference", "News & Media",
+                    "E-commerce", "Reviews", "Forums & Q&A", "Government",
+                    "Blogs", "Travel", "Finance", "Other"
+                }
+                return {
+                    domain: cat if cat in valid_categories else "Other"
+                    for domain, cat in categories.items()
+                }
+
+            return {}
+
+        except Exception as e:
+            print(f"[OpenAI] Domain categorization failed: {e}")
+            return {}
