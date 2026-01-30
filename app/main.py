@@ -60,17 +60,21 @@ def create_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Configure CORS
-    # Configure CORS
+    # Configure CORS - use settings for configurable origins
+    cors_origins = settings.CORS_ORIGINS + [
+        "https://ai-visibility-frontend-rho.vercel.app",
+        "https://ai-visibility-frontend.vercel.app",
+    ]
+    # Remove duplicates while preserving order
+    cors_origins = list(dict.fromkeys(cors_origins))
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "https://ai-visibility-frontend-rho.vercel.app",
-            "http://localhost:3000",
-        ],
+        allow_origins=cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     # Include API routes
