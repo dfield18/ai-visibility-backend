@@ -965,7 +965,10 @@ Note any providers or prompt types where sentiment materially differs.
 Source patterns
 Commonly cited source types (e.g., major publishers, reviews, comparison sites, UGC) and any notable sourcing gaps that may affect visibility.
 
-RECOMMENDATIONS SECTION:
+Actionable takeaway
+One concrete, practical recommendation tied directly to the weakest quantified dimension (e.g., provider gap, ranking depth, sentiment, or competitive exclusion).
+
+RECOMMENDATIONS SECTION (SEPARATE FROM SUMMARY):
 Provide 3-5 specific, actionable recommendations to improve {brand}'s AI visibility. Each recommendation should be a JSON object with:
 - "title": A short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
 - "description": A detailed explanation of what to do and why (2-3 sentences)
