@@ -1,6 +1,7 @@
 """SQLAlchemy ORM models for the AI Visibility application."""
 
 from app.models.auth_account import AuthAccount
+from app.models.cached_category import CachedCategory
 from app.models.cached_suggestion import CachedSuggestion
 from app.models.magic_link_token import MagicLinkToken
 from app.models.result import Result
@@ -12,6 +13,7 @@ from app.models.user import User
 
 __all__ = [
     "AuthAccount",
+    "CachedCategory",
     "CachedSuggestion",
     "MagicLinkToken",
     "Result",
