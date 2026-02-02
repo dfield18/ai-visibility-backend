@@ -115,6 +115,9 @@ async def list_scheduled_reports(
     )
 
 
+MAX_SCHEDULED_REPORTS = 3
+
+
 @router.post("/scheduled-reports", response_model=ScheduledReportResponse, status_code=201)
 async def create_scheduled_report(
     request: ScheduledReportCreate,
@@ -132,7 +135,7 @@ async def create_scheduled_report(
         Created scheduled report
 
     Raises:
-        HTTPException: If validation fails
+        HTTPException: If validation fails or limit exceeded
     """
     # Validate day_of_week for weekly reports
     if request.frequency == "weekly" and request.day_of_week is None:
@@ -143,6 +146,19 @@ async def create_scheduled_report(
 
     # Get or create user in database
     db_user = await get_or_create_user_from_clerk(db, user)
+
+    # Check if user has reached the report limit
+    existing_count_result = await db.execute(
+        select(ScheduledReport)
+        .where(ScheduledReport.user_id == db_user.id)
+    )
+    existing_count = len(existing_count_result.scalars().all())
+
+    if existing_count >= MAX_SCHEDULED_REPORTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum of {MAX_SCHEDULED_REPORTS} scheduled reports allowed. Please delete an existing report to create a new one.",
+        )
 
     # Calculate next run time
     next_run = calculate_next_run(
