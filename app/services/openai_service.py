@@ -1049,25 +1049,42 @@ Return ONLY valid JSON in this exact structure:
 
             response_text = response.text.strip()
 
-            # Remove markdown code blocks if present
-            if response_text.startswith("```"):
-                # Remove ```json or ``` at start and ``` at end
-                response_text = re.sub(r'^```(?:json)?\s*', '', response_text)
-                response_text = re.sub(r'\s*```$', '', response_text)
+            # Try multiple methods to extract JSON
+            json_text = None
 
-            try:
-                result = json.loads(response_text)
-                return {
-                    "summary": result.get("summary", ""),
-                    "recommendations": result.get("recommendations", [])
-                }
-            except json.JSONDecodeError as e:
-                print(f"[OpenAI] JSON parsing failed: {e}")
-                # Fallback: return the text as summary if JSON parsing fails
-                return {
-                    "summary": response.text,
-                    "recommendations": []
-                }
+            # Method 1: Try to find JSON within code blocks (```json ... ```)
+            code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', response_text)
+            if code_block_match:
+                json_text = code_block_match.group(1)
+
+            # Method 2: If no code block, try to find a JSON object directly
+            if not json_text:
+                # Look for JSON object starting with { and containing "summary"
+                json_match = re.search(r'(\{[\s\S]*"summary"[\s\S]*\})\s*$', response_text)
+                if json_match:
+                    json_text = json_match.group(1)
+
+            # Method 3: If response starts/ends with braces, use it directly
+            if not json_text and response_text.startswith('{') and response_text.endswith('}'):
+                json_text = response_text
+
+            if json_text:
+                try:
+                    result = json.loads(json_text)
+                    return {
+                        "summary": result.get("summary", ""),
+                        "recommendations": result.get("recommendations", [])
+                    }
+                except json.JSONDecodeError as e:
+                    print(f"[OpenAI] JSON parsing failed for extracted text: {e}")
+                    print(f"[OpenAI] Attempted to parse: {json_text[:200]}...")
+
+            # Fallback: If all parsing attempts fail, log and return the text as summary
+            print(f"[OpenAI] Could not extract JSON from response: {response_text[:200]}...")
+            return {
+                "summary": response.text,
+                "recommendations": []
+            }
         except Exception as e:
             print(f"[OpenAI] Summary generation failed: {e}")
             return {"summary": "", "recommendations": []}
