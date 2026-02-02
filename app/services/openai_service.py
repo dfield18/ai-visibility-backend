@@ -1045,13 +1045,24 @@ Return ONLY valid JSON in this exact structure:
             )
             # Parse JSON response
             import json
+            import re
+
+            response_text = response.text.strip()
+
+            # Remove markdown code blocks if present
+            if response_text.startswith("```"):
+                # Remove ```json or ``` at start and ``` at end
+                response_text = re.sub(r'^```(?:json)?\s*', '', response_text)
+                response_text = re.sub(r'\s*```$', '', response_text)
+
             try:
-                result = json.loads(response.text)
+                result = json.loads(response_text)
                 return {
                     "summary": result.get("summary", ""),
                     "recommendations": result.get("recommendations", [])
                 }
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                print(f"[OpenAI] JSON parsing failed: {e}")
                 # Fallback: return the text as summary if JSON parsing fails
                 return {
                     "summary": response.text,
