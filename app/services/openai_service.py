@@ -887,8 +887,8 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
         brand: str,
         search_type: str,
         results_data: str,
-    ) -> str:
-        """Generate an AI summary of visibility run results.
+    ) -> dict:
+        """Generate an AI summary and recommendations of visibility run results.
 
         Args:
             brand: The brand or category being analyzed.
@@ -896,7 +896,7 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
             results_data: Formatted string of all results data.
 
         Returns:
-            An executive summary of the results.
+            Dict with 'summary' and 'recommendations' keys.
         """
         entity_type = "category" if search_type == "category" else "brand"
 
@@ -932,6 +932,9 @@ DATA
 
 OUTPUT FORMAT (STRICT)
 
+Your response MUST be valid JSON with exactly two keys: "summary" and "recommendations".
+
+SUMMARY SECTION:
 Begin with one bolded headline sentence that states the dominant conclusion about {brand}'s AI visibility
 – The headline MUST reflect the overall quantitative pattern
 – It should also name the primary driver (e.g., strong top-rank placement, broad provider coverage, or a specific provider gap)
@@ -939,7 +942,7 @@ Begin with one bolded headline sentence that states the dominant conclusion abou
 Follow with 4–5 short paragraphs, separated by line breaks.
 Each paragraph MUST begin with a bolded lead-in phrase (not bullets).
 
-CONTENT TO COVER (ALL REQUIRED)
+CONTENT TO COVER IN SUMMARY (ALL REQUIRED)
 
 Overall visibility
 How frequently {brand} is mentioned across AI providers and prompts, and whether this represents strong, moderate, or weak visibility overall.
@@ -962,8 +965,19 @@ Note any providers or prompt types where sentiment materially differs.
 Source patterns
 Commonly cited source types (e.g., major publishers, reviews, comparison sites, UGC) and any notable sourcing gaps that may affect visibility.
 
-Actionable takeaway
-One concrete, practical recommendation tied directly to the weakest quantified dimension (e.g., provider gap, ranking depth, sentiment, or competitive exclusion).
+RECOMMENDATIONS SECTION:
+Provide 3-5 specific, actionable recommendations to improve {brand}'s AI visibility. Each recommendation should be a JSON object with:
+- "title": A short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
+- "description": A detailed explanation of what to do and why (2-3 sentences)
+- "priority": "high", "medium", or "low" based on potential impact
+- "category": One of "content", "seo", "pr", "product", or "technical"
+
+Recommendations should be tied directly to weaknesses identified in the data:
+- Provider gaps (missing from specific AI providers)
+- Ranking depth issues (mentioned but not top-ranked)
+- Sentiment concerns (negative or conditional mentions)
+- Competitive positioning (consistently outranked by competitors)
+- Source gaps (missing from influential source types)
 
 INTERPRETATION GUIDANCE (CRITICAL)
 
@@ -991,7 +1005,7 @@ Overall tone and headline must reflect the dominant quantitative signal, not edg
 
 STYLE AND FORMATTING RULES (STRICT)
 
-Do NOT use bullet points or numbered lists in the output
+Do NOT use bullet points or numbered lists in the summary
 
 Use line breaks between paragraphs for readability
 
@@ -1004,6 +1018,20 @@ Do not downplay strong performance with qualifiers when data supports strength
 Be specific, comparative, and decisive
 
 Do NOT restate the prompt or describe methodology
+
+RESPONSE FORMAT:
+Return ONLY valid JSON in this exact structure:
+{{
+  "summary": "Your executive summary here with **bold** formatting for lead-ins...",
+  "recommendations": [
+    {{
+      "title": "Recommendation title",
+      "description": "Detailed description of the recommendation",
+      "priority": "high",
+      "category": "content"
+    }}
+  ]
+}}
 """
 
         try:
@@ -1012,10 +1040,23 @@ Do NOT restate the prompt or describe methodology
                 system_prompt=system_prompt,
                 temperature=0.5,  # Lower temperature for more consistent summaries
             )
-            return response.text
+            # Parse JSON response
+            import json
+            try:
+                result = json.loads(response.text)
+                return {
+                    "summary": result.get("summary", ""),
+                    "recommendations": result.get("recommendations", [])
+                }
+            except json.JSONDecodeError:
+                # Fallback: return the text as summary if JSON parsing fails
+                return {
+                    "summary": response.text,
+                    "recommendations": []
+                }
         except Exception as e:
             print(f"[OpenAI] Summary generation failed: {e}")
-            return ""
+            return {"summary": "", "recommendations": []}
 
     async def categorize_domains(
         self,

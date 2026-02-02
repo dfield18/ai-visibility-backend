@@ -196,9 +196,19 @@ class CancelResponse(BaseModel):
     actual_cost: float
 
 
+class AIRecommendation(BaseModel):
+    """A single AI-generated recommendation."""
+
+    title: str
+    description: str
+    priority: str  # "high", "medium", or "low"
+    category: str  # "content", "seo", "pr", "product", or "technical"
+
+
 class AISummaryResponse(BaseModel):
-    """Response containing AI-generated summary of run results."""
+    """Response containing AI-generated summary and recommendations of run results."""
 
     run_id: UUID
     summary: str
+    recommendations: List[AIRecommendation] = []
     generated_at: datetime

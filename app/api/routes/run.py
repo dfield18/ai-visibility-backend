@@ -297,10 +297,10 @@ async def get_ai_summary(run_id: UUID, db: DatabaseDep) -> AISummaryResponse:
     # Get search_type from config
     search_type = run.config.get("search_type", "brand") if run.config else "brand"
 
-    # Generate summary using OpenAI
+    # Generate summary and recommendations using OpenAI
     try:
         openai_service = OpenAIService()
-        summary = await openai_service.generate_results_summary(
+        result = await openai_service.generate_results_summary(
             brand=run.brand,
             search_type=search_type,
             results_data=results_data,
@@ -310,12 +310,13 @@ async def get_ai_summary(run_id: UUID, db: DatabaseDep) -> AISummaryResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate summary: {e}")
 
-    if not summary:
+    if not result.get("summary"):
         raise HTTPException(status_code=500, detail="Failed to generate summary")
 
     return AISummaryResponse(
         run_id=run_id,
-        summary=summary,
+        summary=result["summary"],
+        recommendations=result.get("recommendations", []),
         generated_at=datetime.utcnow(),
     )
 
