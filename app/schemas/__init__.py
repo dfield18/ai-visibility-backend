@@ -11,6 +11,14 @@ from app.schemas.run import (
     RunStatusResponse,
     RunSummary,
 )
+from app.schemas.scheduled_report import (
+    RunNowResponse,
+    ScheduledReportCreate,
+    ScheduledReportListResponse,
+    ScheduledReportResponse,
+    ScheduledReportUpdate,
+    ToggleResponse,
+)
 
 __all__ = [
     "SuggestRequest",
@@ -23,4 +31,10 @@ __all__ = [
     "ProviderStats",
     "CompetitorStats",
     "ResultItem",
+    "ScheduledReportCreate",
+    "ScheduledReportUpdate",
+    "ScheduledReportResponse",
+    "ScheduledReportListResponse",
+    "ToggleResponse",
+    "RunNowResponse",
 ]

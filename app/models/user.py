@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.auth_account import AuthAccount
     from app.models.magic_link_token import MagicLinkToken
     from app.models.run import Run
+    from app.models.scheduled_report import ScheduledReport
     from app.models.subscription import Subscription
     from app.models.usage_record import UsageRecord
 
@@ -97,6 +98,12 @@ class User(Base):
     )
     usage_records: Mapped[List["UsageRecord"]] = relationship(
         "UsageRecord",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    scheduled_reports: Mapped[List["ScheduledReport"]] = relationship(
+        "ScheduledReport",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",

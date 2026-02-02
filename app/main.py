@@ -16,7 +16,8 @@ from app.core.database import AsyncSessionLocal
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup and shutdown events.
 
-    Performs database connection test on startup and cleanup on shutdown.
+    Performs database connection test on startup, starts scheduler,
+    and handles cleanup on shutdown.
 
     Args:
         app: FastAPI application instance.
@@ -38,10 +39,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print(f"Warning: Database connection failed: {e}")
         print("The application will start but database operations will fail.")
 
+    # Start scheduler service for automated reports
+    try:
+        from app.services.scheduler import scheduler_service
+        await scheduler_service.start()
+    except Exception as e:
+        print(f"Warning: Scheduler service failed to start: {e}")
+        print("Scheduled reports will not run automatically.")
+
     yield
 
     # Shutdown
     print("Shutting down AI Visibility Backend...")
+
+    # Stop scheduler
+    try:
+        from app.services.scheduler import scheduler_service
+        await scheduler_service.shutdown()
+    except Exception as e:
+        print(f"Warning: Scheduler shutdown error: {e}")
 
 
 def create_application() -> FastAPI:
