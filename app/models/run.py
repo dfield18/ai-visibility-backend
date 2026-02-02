@@ -15,6 +15,8 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.models.result import Result
     from app.models.session import Session
+    from app.models.usage_record import UsageRecord
+    from app.models.user import User
 
 
 class Run(Base):
@@ -52,6 +54,12 @@ class Run(Base):
         PG_UUID(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
         nullable=False,
+    )
+    user_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,  # Nullable for existing runs before user system
+        index=True,
     )
     status: Mapped[str] = mapped_column(
         String(20),
@@ -116,6 +124,15 @@ class Run(Base):
     session: Mapped["Session"] = relationship(
         "Session",
         back_populates="runs",
+    )
+    user: Mapped[Optional["User"]] = relationship(
+        "User",
+        back_populates="runs",
+    )
+    usage_record: Mapped[Optional["UsageRecord"]] = relationship(
+        "UsageRecord",
+        back_populates="run",
+        uselist=False,
     )
 
     __table_args__ = (

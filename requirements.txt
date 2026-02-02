@@ -9,3 +9,5 @@ pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
 httpx>=0.26.0
 tenacity>=8.2.3
+PyJWT>=2.8.0
+cryptography>=42.0.0

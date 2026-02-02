@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     PERPLEXITY_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
+    CLERK_DOMAIN: str = ""  # e.g., "your-app.clerk.accounts.dev"
+    CLERK_SECRET_KEY: str = ""  # Clerk secret key for backend API calls
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
