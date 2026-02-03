@@ -1144,18 +1144,26 @@ Return ONLY valid JSON in this exact structure:
                 print(f"[OpenAI] Extracted summary via regex: {extracted_summary[:100]}...")
 
             # Try to extract recommendations array
-            recs_match = re.search(r'"recommendations"\s*:\s*\[([\s\S]*)\]', response_text)
+            recs_match = re.search(r'"recommendations"\s*:\s*\[([\s\S]*)\]\s*\}?\s*$', response_text)
             if recs_match:
                 recs_text = recs_match.group(1).strip()
                 if recs_text:
                     # Try to parse individual recommendation objects
-                    rec_objects = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', recs_text)
+                    # This pattern handles nested arrays (like tactics) and objects
+                    rec_objects = re.findall(r'\{\s*"title"[^}]*(?:\[[^\]]*\][^}]*)*\}', recs_text, re.DOTALL)
                     for rec_str in rec_objects:
                         try:
-                            rec = json.loads(rec_str)
+                            # Try to fix common JSON issues
+                            fixed_str = rec_str.strip()
+                            if not fixed_str.endswith('}'):
+                                fixed_str += '}'
+                            rec = json.loads(fixed_str)
                             if isinstance(rec, dict) and 'title' in rec:
                                 extracted_recommendations.append(rec)
-                        except json.JSONDecodeError:
+                                print(f"[OpenAI] Extracted recommendation: {rec.get('title', 'unknown')}")
+                        except json.JSONDecodeError as e:
+                            print(f"[OpenAI] Failed to parse recommendation object: {e}")
+                            print(f"[OpenAI] Object text: {rec_str[:200]}...")
                             continue
                     if extracted_recommendations:
                         print(f"[OpenAI] Extracted {len(extracted_recommendations)} recommendations via regex")
