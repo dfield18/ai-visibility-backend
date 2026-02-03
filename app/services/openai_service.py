@@ -1,5 +1,6 @@
 """OpenAI service for GPT-4o API calls."""
 
+import asyncio
 import json
 import re
 from typing import Any, Dict, List, Optional
@@ -890,6 +891,10 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
     ) -> dict:
         """Generate an AI summary and recommendations of visibility run results.
 
+        Makes two separate API calls for reliability:
+        1. Generate executive summary (plain text)
+        2. Generate recommendations (JSON array)
+
         Args:
             brand: The brand or category being analyzed.
             search_type: Either 'brand' or 'category'.
@@ -898,7 +903,40 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
         Returns:
             Dict with 'summary' and 'recommendations' keys.
         """
+        import json
+
         entity_type = "category" if search_type == "category" else "brand"
+
+        # Generate summary and recommendations in parallel for speed
+        summary_task = self._generate_summary(brand, entity_type, results_data)
+        recommendations_task = self._generate_recommendations(brand, entity_type, results_data)
+
+        summary, recommendations = await asyncio.gather(
+            summary_task,
+            recommendations_task,
+            return_exceptions=True
+        )
+
+        # Handle any exceptions
+        if isinstance(summary, Exception):
+            print(f"[OpenAI] Summary generation failed: {summary}")
+            summary = ""
+        if isinstance(recommendations, Exception):
+            print(f"[OpenAI] Recommendations generation failed: {recommendations}")
+            recommendations = []
+
+        return {
+            "summary": summary,
+            "recommendations": recommendations
+        }
+
+    async def _generate_summary(
+        self,
+        brand: str,
+        entity_type: str,
+        results_data: str,
+    ) -> str:
+        """Generate executive summary as plain text (no JSON)."""
 
         system_prompt = (
             "You are an AI visibility analyst. Your role is to analyze how brands appear "
@@ -908,281 +946,182 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
             "and business-relevant insights over cautious or academic language.\n\n"
             "You write for brand, SEO, growth, or product leaders, not researchers. "
             "Your summaries should read like a concise analyst brief suitable for a product "
-            "dashboard or internal intelligence report."
+            "dashboard or internal intelligence report.\n\n"
+            "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations."
         )
 
-        user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary suitable for a product dashboard or brand intelligence report.
+        user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary.
 
-The data shows how multiple AI providers (e.g., OpenAI ChatGPT, Google Gemini, Anthropic Claude, Perplexity, Google AI Overviews) responded to relevant prompts.
-
-Each result may include:
-
-Whether {brand} was mentioned
-
-The position or rank where it appeared (if applicable)
-
-Which competitors appeared
-
-Sentiment or framing of the mention (positive, neutral, negative)
-
-Any cited sources
-
-DATA
+DATA:
 {results_data}
 
-OUTPUT FORMAT (STRICT)
+OUTPUT FORMAT (STRICT - PLAIN TEXT ONLY):
 
-Your response MUST be valid JSON with exactly two keys: "summary" and "recommendations".
-
-SUMMARY SECTION:
-Begin with one bolded headline sentence that states the dominant conclusion about {brand}'s AI visibility
+Begin with one bolded headline sentence (using **bold**) that states the dominant conclusion about {brand}'s AI visibility.
 – The headline MUST reflect the overall quantitative pattern
 – It should also name the primary driver (e.g., strong top-rank placement, broad provider coverage, or a specific provider gap)
 
 Follow with 4–5 short paragraphs, separated by line breaks.
-Each paragraph MUST begin with a bolded lead-in phrase (not bullets).
+Each paragraph MUST begin with a bolded lead-in phrase (using **bold**).
 
-CONTENT TO COVER IN SUMMARY (ALL REQUIRED)
+CONTENT TO COVER (ALL REQUIRED):
 
-Overall visibility
-How frequently {brand} is mentioned across AI providers and prompts, and whether this represents strong, moderate, or weak visibility overall.
+1. **Overall visibility** - How frequently {brand} is mentioned across AI providers and prompts
 
-Ranking quality
-Whether {brand} is typically positioned as a leading recommendation (e.g., first or top-3) versus appearing later as an alternative.
-Distinguish clearly between consistent high placement and mere inclusion.
+2. **Ranking quality** - Whether {brand} is positioned as a leading recommendation vs later alternative
 
-Provider differences
-Meaningful over- or under-performance by specific AI providers.
-Absence from a single provider should be framed as a specific gap or opportunity, not overall inconsistency.
+3. **Provider differences** - Over- or under-performance by specific AI providers
 
-Competitive context
-Which competitors appear most often, who most frequently outranks {brand}, and whether {brand} is framed as a primary choice or secondary option.
+4. **Competitive context** - Which competitors appear most often and outrank {brand}
 
-Sentiment and framing
-The dominant sentiment toward {brand} (positive, neutral, negative) and how the brand is framed (e.g., category leader, alternative, niche, legacy).
-Note any providers or prompt types where sentiment materially differs.
+5. **Sentiment and framing** - Dominant sentiment and how the brand is framed
 
-Source patterns
-Commonly cited source types (e.g., major publishers, reviews, comparison sites, UGC) and any notable sourcing gaps that may affect visibility.
+6. **Source patterns** - Commonly cited source types and notable gaps
 
-Actionable takeaway
-One concrete, practical recommendation tied directly to the weakest quantified dimension (e.g., provider gap, ranking depth, sentiment, or competitive exclusion).
+7. **Actionable takeaway** - One concrete recommendation tied to the weakest dimension
 
-RECOMMENDATIONS SECTION (SEPARATE FROM SUMMARY):
-Provide 3-5 specific, actionable recommendations to improve {brand}'s AI visibility. Each recommendation should be a JSON object with:
-- "title": A short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
-- "description": A detailed explanation that MUST include specific data from the analysis. Use the format: "[Problem statement] because [specific data insight]." (1-2 sentences)
-- "tactics": An array of 2-4 specific, concrete action steps that explain HOW to implement this recommendation. Each tactic should be a specific task someone could execute (not vague advice).
-- "priority": "high", "medium", or "low" based on potential impact
-- "category": One of "content", "seo", "pr", "product", or "technical"
-- "dataInsight": A brief quote of the specific data point driving this recommendation (e.g., "0% visibility on Perplexity", "Ranked #4 avg vs competitor's #1", "Negative sentiment in 30% of mentions")
+INTERPRETATION THRESHOLDS:
+- Presence in ≈70%+ of responses → strong AI visibility
+- Presence in ~50% of responses → moderate AI visibility
+- Presence in minority of responses → weak AI visibility
 
-CRITICAL: Every recommendation MUST include both data insights AND specific tactics. Generic advice like "create better content" or "improve SEO" is not acceptable. Each tactic must be a concrete action with specific details (platforms, content types, outreach targets).
+STYLE RULES:
+- Do NOT use bullet points or numbered lists
+- Use line breaks between paragraphs
+- Avoid hedging language ("may indicate", "appears to be")
+- Be specific, comparative, and decisive
+- Do NOT restate the prompt or describe methodology
 
-DETAILED TACTICS EXAMPLES - Match this level of specificity:
-
-FOR PROVIDER GAPS (brand missing from specific AI platforms):
-- "Create a comprehensive brand FAQ page with structured data markup (FAQPage schema) - Claude and Perplexity heavily weight well-structured Q&A content"
-- "Publish in-depth product comparisons on Reddit (r/[relevant_subreddit]) with genuine community engagement - Perplexity indexes Reddit discussions prominently"
-- "Ensure your Google Business Profile and Bing Places listings are complete with all product/service details - ChatGPT's browsing and Google AI Overviews pull from these sources"
-- "Submit your site to Bing Webmaster Tools and request indexing - ChatGPT's web browsing feature relies heavily on Bing's index"
-- "Create detailed answers on Quora and Stack Exchange for questions related to your category - these are frequently cited by Claude and Perplexity"
-- "Publish a Wikipedia article about your brand (if notable enough) or ensure existing mentions are accurate - all major AI providers reference Wikipedia"
-
-FOR COMPETITIVE POSITIONING (outranked by competitors):
-- "Create head-to-head comparison landing pages (e.g., '{brand} vs Adidas Running Shoes') with detailed feature tables, pricing, and use-case recommendations"
-- "Develop a 'Why Choose {brand}' page that directly addresses the top 3 reasons customers might consider competitors, with specific counter-arguments"
-- "Pitch exclusive product announcements to journalists at TechCrunch, The Verge, or Wired who have previously covered your competitors"
-- "Update your product pages with JSON-LD structured data highlighting awards, ratings, and unique features that differentiate from competitors"
-- "Create YouTube comparison videos with detailed feature breakdowns - AI models frequently reference YouTube content for product research"
-- "Commission or encourage third-party review sites (G2, Capterra, Trustpilot) to include direct competitor comparison sections"
-
-FOR SENTIMENT ISSUES (negative or conditional framing):
-- "Issue a press release via PR Newswire or Business Wire announcing specific recent improvements, innovations, or awards to update the narrative"
-- "Reach out to CNET, Wirecutter, Tom's Guide, or TechRadar editors requesting an updated review based on recent product improvements"
-- "Create detailed case studies with named customers showcasing successful outcomes - publish on your blog and distribute to industry publications"
-- "Address specific criticism directly on your website with a 'Myth vs Reality' or 'Common Misconceptions' page with factual rebuttals"
-- "Encourage recent satisfied customers to leave detailed reviews on Google, Trustpilot, and industry-specific review platforms"
-- "Partner with respected industry analysts (Gartner, Forrester, IDC) to update any outdated assessments of your brand"
-
-FOR SOURCE GAPS (missing from influential citation sources):
-- "Identify the top 5 publications cited for competitors (from the source analysis) and pitch product reviews or expert commentary to their editors"
-- "Create authoritative, Wikipedia-style content on industry wikis, knowledge bases, and educational sites that AI models frequently reference"
-- "Publish technical documentation, API guides, or developer resources on GitHub - Claude and ChatGPT frequently cite GitHub for technical information"
-- "Contribute expert guest posts to high-authority industry blogs and publications (Forbes, Inc, industry trade publications)"
-- "Create a detailed company profile on Crunchbase, LinkedIn, and industry-specific directories with complete product/service information"
-- "Develop educational content (whitepapers, guides, tutorials) and distribute through SlideShare, ResearchGate, or industry associations"
-
-FOR RANKING DEPTH (mentioned but not top-ranked):
-- "Optimize your homepage and key landing pages for 'best [category]' queries with clear value propositions in the first 100 words"
-- "Build backlinks from authoritative review sites by offering exclusive access, samples, or expert interviews"
-- "Ensure your products appear in relevant 'best of' and 'top 10' listicles by pitching to content creators who publish these roundups"
-- "Add customer testimonials and trust signals (awards, certifications, review scores) prominently on pages AI models are likely to crawl"
-- "Create category-defining content (e.g., 'The Complete Guide to [Category]') that positions your brand as the authoritative voice"
-
-Recommendations should be tied directly to weaknesses identified in the data:
-- Provider gaps (missing from specific AI providers) - cite which providers and the visibility %
-- Ranking depth issues (mentioned but not top-ranked) - cite average rank vs competitors
-- Sentiment concerns (negative or conditional mentions) - cite sentiment % breakdown
-- Competitive positioning (consistently outranked by competitors) - name the competitors and rank difference
-- Source gaps (missing from influential source types) - name the missing source types
-
-INTERPRETATION GUIDANCE (CRITICAL)
-
-Determine visibility strength based on the proportion of AI providers mentioning {brand}, relative to the total number analyzed (typically 1–6).
-
-Use these framing thresholds:
-
-Presence in a clear majority of responses (≈70% or more) → strong AI visibility
-
-Presence in roughly half of responses → moderate AI visibility
-
-Presence in a small minority of responses → weak AI visibility
-
-Do NOT describe visibility as "uneven," "mixed," or "inconsistent" if the brand appears in a strong majority of responses.
-
-When ranking data is available:
-
-Explicitly distinguish leading placement from lower-rank inclusion
-
-A brand frequently mentioned but rarely ranked first should not be framed as category-leading.
-
-If under-performance or absence is concentrated in high-intent prompts (e.g., "best," "top," "alternatives"), frame this as a conversion-relevant gap, not a neutral omission.
-
-Overall tone and headline must reflect the dominant quantitative signal, not edge cases.
-
-STYLE AND FORMATTING RULES (STRICT)
-
-Do NOT use bullet points or numbered lists in the summary
-
-Use line breaks between paragraphs for readability
-
-Avoid hedging language (e.g., "may indicate," "appears to be," "somewhat")
-
-Avoid vague intensifiers (e.g., "notably," "significantly") unless paired with a clear data reference
-
-Do not downplay strong performance with qualifiers when data supports strength
-
-Be specific, comparative, and decisive
-
-Do NOT restate the prompt or describe methodology
-
-RESPONSE FORMAT:
-Return ONLY valid JSON in this exact structure:
-{{
-  "summary": "Your executive summary here with **bold** formatting for lead-ins...",
-  "recommendations": [
-    {{
-      "title": "Recommendation title",
-      "description": "Problem statement with specific data insight (1-2 sentences)",
-      "tactics": [
-        "Specific action step 1 - a concrete task someone can execute",
-        "Specific action step 2 - another concrete task",
-        "Specific action step 3 - if needed"
-      ],
-      "priority": "high",
-      "category": "content",
-      "dataInsight": "The specific metric driving this, e.g., '0% visibility on Perplexity'"
-    }}
-  ]
-}}
-"""
+CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON."""
 
         try:
             response = await self.chat_completion(
                 user_prompt=user_prompt,
                 system_prompt=system_prompt,
-                temperature=0.5,  # Lower temperature for more consistent summaries
+                temperature=0.5,
             )
-            # Parse JSON response
-            import json
-            import re
-
-            response_text = response.text.strip()
-
-            # Try multiple methods to extract JSON
-            json_text = None
-
-            # Method 1: Try to find JSON within code blocks (```json ... ```)
-            code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', response_text)
-            if code_block_match:
-                json_text = code_block_match.group(1)
-
-            # Method 2: If no code block, try to find a JSON object directly
-            if not json_text:
-                # Look for JSON object starting with { and containing "summary"
-                json_match = re.search(r'(\{[\s\S]*"summary"[\s\S]*\})\s*$', response_text)
-                if json_match:
-                    json_text = json_match.group(1)
-
-            # Method 3: If response starts/ends with braces, use it directly
-            if not json_text and response_text.startswith('{') and response_text.endswith('}'):
-                json_text = response_text
-
-            if json_text:
-                try:
-                    result = json.loads(json_text)
-                    return {
-                        "summary": result.get("summary", ""),
-                        "recommendations": result.get("recommendations", [])
-                    }
-                except json.JSONDecodeError as e:
-                    print(f"[OpenAI] JSON parsing failed for extracted text: {e}")
-                    print(f"[OpenAI] Attempted to parse: {json_text[:200]}...")
-
-            # Fallback: Try to extract summary and recommendations manually using regex
-            print(f"[OpenAI] Attempting manual extraction from response...")
-            extracted_summary = ""
-            extracted_recommendations = []
-
-            # Try to extract summary
-            summary_match = re.search(r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)', response_text, re.DOTALL)
-            if summary_match:
-                extracted_summary = summary_match.group(1)
-                # Unescape JSON string escapes
-                extracted_summary = extracted_summary.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
-                print(f"[OpenAI] Extracted summary via regex: {extracted_summary[:100]}...")
-
-            # Try to extract recommendations array
-            recs_match = re.search(r'"recommendations"\s*:\s*\[([\s\S]*)\]\s*\}?\s*$', response_text)
-            if recs_match:
-                recs_text = recs_match.group(1).strip()
-                if recs_text:
-                    # Try to parse individual recommendation objects
-                    # This pattern handles nested arrays (like tactics) and objects
-                    rec_objects = re.findall(r'\{\s*"title"[^}]*(?:\[[^\]]*\][^}]*)*\}', recs_text, re.DOTALL)
-                    for rec_str in rec_objects:
-                        try:
-                            # Try to fix common JSON issues
-                            fixed_str = rec_str.strip()
-                            if not fixed_str.endswith('}'):
-                                fixed_str += '}'
-                            rec = json.loads(fixed_str)
-                            if isinstance(rec, dict) and 'title' in rec:
-                                extracted_recommendations.append(rec)
-                                print(f"[OpenAI] Extracted recommendation: {rec.get('title', 'unknown')}")
-                        except json.JSONDecodeError as e:
-                            print(f"[OpenAI] Failed to parse recommendation object: {e}")
-                            print(f"[OpenAI] Object text: {rec_str[:200]}...")
-                            continue
-                    if extracted_recommendations:
-                        print(f"[OpenAI] Extracted {len(extracted_recommendations)} recommendations via regex")
-
-            if extracted_summary:
-                return {
-                    "summary": extracted_summary,
-                    "recommendations": extracted_recommendations
-                }
-
-            # Final fallback: return raw text as summary
-            print(f"[OpenAI] Could not extract content from response: {response_text[:200]}...")
-            return {
-                "summary": response.text,
-                "recommendations": []
-            }
+            summary_text = response.text.strip()
+            print(f"[OpenAI] Summary generated: {len(summary_text)} chars")
+            return summary_text
         except Exception as e:
             print(f"[OpenAI] Summary generation failed: {e}")
-            return {"summary": "", "recommendations": []}
+            return ""
+
+    async def _generate_recommendations(
+        self,
+        brand: str,
+        entity_type: str,
+        results_data: str,
+    ) -> List[Dict[str, Any]]:
+        """Generate recommendations as a JSON array."""
+
+        system_prompt = (
+            "You are an AI visibility strategist. Your role is to provide specific, actionable "
+            "recommendations to improve brand visibility in AI-generated responses.\n\n"
+            "You provide concrete tactics, not vague advice. Every recommendation must be tied "
+            "to specific data insights and include executable action steps.\n\n"
+            "IMPORTANT: Return ONLY a JSON array. No other text."
+        )
+
+        user_prompt = f"""Based on the following AI visibility data for the {entity_type} "{brand}", provide 3-5 specific recommendations.
+
+DATA:
+{results_data}
+
+OUTPUT FORMAT (STRICT - JSON ARRAY ONLY):
+
+Return a JSON array where each recommendation has:
+- "title": Short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
+- "description": 1-2 sentences explaining the problem with specific data. Format: "[Problem] because [data insight]."
+- "tactics": Array of 2-4 specific, concrete action steps (not vague advice)
+- "priority": "high", "medium", or "low"
+- "category": One of "content", "seo", "pr", "product", or "technical"
+- "dataInsight": The specific metric driving this (e.g., "0% visibility on Perplexity")
+
+TACTICS MUST BE SPECIFIC. Examples of good tactics:
+- "Create a comprehensive brand FAQ page with structured data markup (FAQPage schema)"
+- "Publish in-depth product comparisons on Reddit (r/[relevant_subreddit])"
+- "Submit your site to Bing Webmaster Tools and request indexing"
+- "Create head-to-head comparison landing pages (e.g., '{brand} vs [Competitor]')"
+- "Pitch exclusive product announcements to journalists at TechCrunch, The Verge"
+- "Issue a press release via PR Newswire announcing recent improvements"
+
+BAD tactics (too vague):
+- "Create better content"
+- "Improve SEO"
+- "Build more backlinks"
+
+TIE RECOMMENDATIONS TO DATA WEAKNESSES:
+- Provider gaps → cite which providers and visibility %
+- Ranking depth → cite average rank vs competitors
+- Sentiment issues → cite sentiment % breakdown
+- Competitive positioning → name competitors and rank difference
+- Source gaps → name missing source types
+
+EXAMPLE OUTPUT:
+[
+  {{
+    "title": "Close Perplexity Visibility Gap",
+    "description": "{brand} has 0% visibility on Perplexity while achieving 85% on other providers, representing a significant missed opportunity.",
+    "tactics": [
+      "Create detailed answers on Quora for questions related to your category - Perplexity indexes Quora prominently",
+      "Publish in-depth product comparisons on Reddit with genuine community engagement",
+      "Ensure your Google Business Profile is complete with all product/service details"
+    ],
+    "priority": "high",
+    "category": "content",
+    "dataInsight": "0% visibility on Perplexity vs 85% average elsewhere"
+  }}
+]
+
+Return ONLY the JSON array, no other text or markdown."""
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.5,
+            )
+
+            response_text = response.text.strip()
+            print(f"[OpenAI] Recommendations raw response: {response_text[:200]}...")
+
+            # Remove markdown code blocks if present
+            response_text = re.sub(r"```json?\s*", "", response_text)
+            response_text = re.sub(r"```\s*", "", response_text)
+            response_text = response_text.strip()
+
+            # Try to parse JSON array
+            try:
+                recommendations = json.loads(response_text)
+                if isinstance(recommendations, list):
+                    print(f"[OpenAI] Parsed {len(recommendations)} recommendations")
+                    return recommendations
+                elif isinstance(recommendations, dict) and "recommendations" in recommendations:
+                    # Handle case where GPT returns {"recommendations": [...]}
+                    recs = recommendations["recommendations"]
+                    print(f"[OpenAI] Extracted {len(recs)} recommendations from dict")
+                    return recs
+            except json.JSONDecodeError as e:
+                print(f"[OpenAI] JSON parsing failed: {e}")
+
+            # Fallback: try to find array in response
+            array_match = re.search(r'\[[\s\S]*\]', response_text)
+            if array_match:
+                try:
+                    recommendations = json.loads(array_match.group())
+                    if isinstance(recommendations, list):
+                        print(f"[OpenAI] Extracted {len(recommendations)} recommendations via regex")
+                        return recommendations
+                except json.JSONDecodeError:
+                    pass
+
+            print(f"[OpenAI] Could not parse recommendations from: {response_text[:200]}...")
+            return []
+
+        except Exception as e:
+            print(f"[OpenAI] Recommendations generation failed: {e}")
+            return []
 
     async def categorize_domains(
         self,
