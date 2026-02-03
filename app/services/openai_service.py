@@ -1130,8 +1130,44 @@ Return ONLY valid JSON in this exact structure:
                     print(f"[OpenAI] JSON parsing failed for extracted text: {e}")
                     print(f"[OpenAI] Attempted to parse: {json_text[:200]}...")
 
-            # Fallback: If all parsing attempts fail, log and return the text as summary
-            print(f"[OpenAI] Could not extract JSON from response: {response_text[:200]}...")
+            # Fallback: Try to extract summary and recommendations manually using regex
+            print(f"[OpenAI] Attempting manual extraction from response...")
+            extracted_summary = ""
+            extracted_recommendations = []
+
+            # Try to extract summary
+            summary_match = re.search(r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)', response_text, re.DOTALL)
+            if summary_match:
+                extracted_summary = summary_match.group(1)
+                # Unescape JSON string escapes
+                extracted_summary = extracted_summary.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+                print(f"[OpenAI] Extracted summary via regex: {extracted_summary[:100]}...")
+
+            # Try to extract recommendations array
+            recs_match = re.search(r'"recommendations"\s*:\s*\[([\s\S]*)\]', response_text)
+            if recs_match:
+                recs_text = recs_match.group(1).strip()
+                if recs_text:
+                    # Try to parse individual recommendation objects
+                    rec_objects = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', recs_text)
+                    for rec_str in rec_objects:
+                        try:
+                            rec = json.loads(rec_str)
+                            if isinstance(rec, dict) and 'title' in rec:
+                                extracted_recommendations.append(rec)
+                        except json.JSONDecodeError:
+                            continue
+                    if extracted_recommendations:
+                        print(f"[OpenAI] Extracted {len(extracted_recommendations)} recommendations via regex")
+
+            if extracted_summary:
+                return {
+                    "summary": extracted_summary,
+                    "recommendations": extracted_recommendations
+                }
+
+            # Final fallback: return raw text as summary
+            print(f"[OpenAI] Could not extract content from response: {response_text[:200]}...")
             return {
                 "summary": response.text,
                 "recommendations": []
