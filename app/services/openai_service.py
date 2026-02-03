@@ -977,28 +977,48 @@ Provide 3-5 specific, actionable recommendations to improve {brand}'s AI visibil
 - "category": One of "content", "seo", "pr", "product", or "technical"
 - "dataInsight": A brief quote of the specific data point driving this recommendation (e.g., "0% visibility on Perplexity", "Ranked #4 avg vs competitor's #1", "Negative sentiment in 30% of mentions")
 
-CRITICAL: Every recommendation MUST include both data insights AND specific tactics. Generic advice like "create better content" or "improve SEO" is not acceptable.
+CRITICAL: Every recommendation MUST include both data insights AND specific tactics. Generic advice like "create better content" or "improve SEO" is not acceptable. Each tactic must be a concrete action with specific details (platforms, content types, outreach targets).
 
-TACTICS EXAMPLES (be this specific):
-For provider gaps:
-- "Publish detailed product guides on Reddit and Stack Overflow, which are heavily weighted by Perplexity's search"
-- "Create structured FAQ content that matches how Claude retrieves information"
-- "Submit brand information to Bing's index, which powers parts of ChatGPT's browsing"
+DETAILED TACTICS EXAMPLES - Match this level of specificity:
 
-For competitive positioning:
-- "Create dedicated comparison pages (e.g., '{brand} vs [competitor]') targeting head-to-head search queries"
-- "Update product schema markup to highlight unique features competitors lack"
-- "Pitch differentiation stories to tech reviewers who frequently cover [competitor]"
+FOR PROVIDER GAPS (brand missing from specific AI platforms):
+- "Create a comprehensive brand FAQ page with structured data markup (FAQPage schema) - Claude and Perplexity heavily weight well-structured Q&A content"
+- "Publish in-depth product comparisons on Reddit (r/[relevant_subreddit]) with genuine community engagement - Perplexity indexes Reddit discussions prominently"
+- "Ensure your Google Business Profile and Bing Places listings are complete with all product/service details - ChatGPT's browsing and Google AI Overviews pull from these sources"
+- "Submit your site to Bing Webmaster Tools and request indexing - ChatGPT's web browsing feature relies heavily on Bing's index"
+- "Create detailed answers on Quora and Stack Exchange for questions related to your category - these are frequently cited by Claude and Perplexity"
+- "Publish a Wikipedia article about your brand (if notable enough) or ensure existing mentions are accurate - all major AI providers reference Wikipedia"
 
-For sentiment issues:
-- "Address the 'outdated' framing by publishing recent innovation announcements on PR Newswire and Business Wire"
-- "Secure updated reviews from CNET, Wirecutter, or TechRadar highlighting recent improvements"
-- "Create case studies showcasing modern use cases to counter legacy brand perception"
+FOR COMPETITIVE POSITIONING (outranked by competitors):
+- "Create head-to-head comparison landing pages (e.g., '{brand} vs Adidas Running Shoes') with detailed feature tables, pricing, and use-case recommendations"
+- "Develop a 'Why Choose {brand}' page that directly addresses the top 3 reasons customers might consider competitors, with specific counter-arguments"
+- "Pitch exclusive product announcements to journalists at TechCrunch, The Verge, or Wired who have previously covered your competitors"
+- "Update your product pages with JSON-LD structured data highlighting awards, ratings, and unique features that differentiate from competitors"
+- "Create YouTube comparison videos with detailed feature breakdowns - AI models frequently reference YouTube content for product research"
+- "Commission or encourage third-party review sites (G2, Capterra, Trustpilot) to include direct competitor comparison sections"
 
-For source gaps:
-- "Pitch product reviews to [specific publication names] that competitors are cited from"
-- "Create Wikipedia-style neutral content on industry wikis and knowledge bases"
-- "Publish technical documentation on GitHub or developer-focused platforms"
+FOR SENTIMENT ISSUES (negative or conditional framing):
+- "Issue a press release via PR Newswire or Business Wire announcing specific recent improvements, innovations, or awards to update the narrative"
+- "Reach out to CNET, Wirecutter, Tom's Guide, or TechRadar editors requesting an updated review based on recent product improvements"
+- "Create detailed case studies with named customers showcasing successful outcomes - publish on your blog and distribute to industry publications"
+- "Address specific criticism directly on your website with a 'Myth vs Reality' or 'Common Misconceptions' page with factual rebuttals"
+- "Encourage recent satisfied customers to leave detailed reviews on Google, Trustpilot, and industry-specific review platforms"
+- "Partner with respected industry analysts (Gartner, Forrester, IDC) to update any outdated assessments of your brand"
+
+FOR SOURCE GAPS (missing from influential citation sources):
+- "Identify the top 5 publications cited for competitors (from the source analysis) and pitch product reviews or expert commentary to their editors"
+- "Create authoritative, Wikipedia-style content on industry wikis, knowledge bases, and educational sites that AI models frequently reference"
+- "Publish technical documentation, API guides, or developer resources on GitHub - Claude and ChatGPT frequently cite GitHub for technical information"
+- "Contribute expert guest posts to high-authority industry blogs and publications (Forbes, Inc, industry trade publications)"
+- "Create a detailed company profile on Crunchbase, LinkedIn, and industry-specific directories with complete product/service information"
+- "Develop educational content (whitepapers, guides, tutorials) and distribute through SlideShare, ResearchGate, or industry associations"
+
+FOR RANKING DEPTH (mentioned but not top-ranked):
+- "Optimize your homepage and key landing pages for 'best [category]' queries with clear value propositions in the first 100 words"
+- "Build backlinks from authoritative review sites by offering exclusive access, samples, or expert interviews"
+- "Ensure your products appear in relevant 'best of' and 'top 10' listicles by pitching to content creators who publish these roundups"
+- "Add customer testimonials and trust signals (awards, certifications, review scores) prominently on pages AI models are likely to crawl"
+- "Create category-defining content (e.g., 'The Complete Guide to [Category]') that positions your brand as the authoritative voice"
 
 Recommendations should be tied directly to weaknesses identified in the data:
 - Provider gaps (missing from specific AI providers) - cite which providers and the visibility %
