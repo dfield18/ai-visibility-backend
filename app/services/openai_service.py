@@ -971,16 +971,24 @@ One concrete, practical recommendation tied directly to the weakest quantified d
 RECOMMENDATIONS SECTION (SEPARATE FROM SUMMARY):
 Provide 3-5 specific, actionable recommendations to improve {brand}'s AI visibility. Each recommendation should be a JSON object with:
 - "title": A short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
-- "description": A detailed explanation of what to do and why (2-3 sentences)
+- "description": A detailed explanation that MUST include specific data from the analysis. Use the format: "Take [action] because [specific data insight]." Include actual numbers, percentages, provider names, competitor names, or source types from the data. (2-3 sentences)
 - "priority": "high", "medium", or "low" based on potential impact
 - "category": One of "content", "seo", "pr", "product", or "technical"
+- "dataInsight": A brief quote of the specific data point driving this recommendation (e.g., "0% visibility on Perplexity", "Ranked #4 avg vs competitor's #1", "Negative sentiment in 30% of mentions")
+
+CRITICAL: Every recommendation MUST cite specific data from the analysis. Generic advice without data references is not acceptable.
+
+Examples of DATA-DRIVEN recommendations:
+- "Increase presence on Perplexity because {brand} has 0% visibility there while appearing in 85% of ChatGPT responses"
+- "Address negative sentiment patterns because 40% of Claude mentions frame {brand} as 'outdated' compared to [competitor]"
+- "Target tech review sites because 0 citations came from CNET, TechRadar, or Wirecutter despite these being top sources for competitors"
 
 Recommendations should be tied directly to weaknesses identified in the data:
-- Provider gaps (missing from specific AI providers)
-- Ranking depth issues (mentioned but not top-ranked)
-- Sentiment concerns (negative or conditional mentions)
-- Competitive positioning (consistently outranked by competitors)
-- Source gaps (missing from influential source types)
+- Provider gaps (missing from specific AI providers) - cite which providers and the visibility %
+- Ranking depth issues (mentioned but not top-ranked) - cite average rank vs competitors
+- Sentiment concerns (negative or conditional mentions) - cite sentiment % breakdown
+- Competitive positioning (consistently outranked by competitors) - name the competitors and rank difference
+- Source gaps (missing from influential source types) - name the missing source types
 
 INTERPRETATION GUIDANCE (CRITICAL)
 
@@ -1029,9 +1037,10 @@ Return ONLY valid JSON in this exact structure:
   "recommendations": [
     {{
       "title": "Recommendation title",
-      "description": "Detailed description of the recommendation",
+      "description": "Detailed description with specific data: Take [action] because [data insight]",
       "priority": "high",
-      "category": "content"
+      "category": "content",
+      "dataInsight": "Specific data point, e.g., '0% visibility on Perplexity' or 'Ranked #4 vs competitor #1'"
     }}
   ]
 }}
