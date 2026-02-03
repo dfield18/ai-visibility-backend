@@ -971,17 +971,34 @@ One concrete, practical recommendation tied directly to the weakest quantified d
 RECOMMENDATIONS SECTION (SEPARATE FROM SUMMARY):
 Provide 3-5 specific, actionable recommendations to improve {brand}'s AI visibility. Each recommendation should be a JSON object with:
 - "title": A short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
-- "description": A detailed explanation that MUST include specific data from the analysis. Use the format: "Take [action] because [specific data insight]." Include actual numbers, percentages, provider names, competitor names, or source types from the data. (2-3 sentences)
+- "description": A detailed explanation that MUST include specific data from the analysis. Use the format: "[Problem statement] because [specific data insight]." (1-2 sentences)
+- "tactics": An array of 2-4 specific, concrete action steps that explain HOW to implement this recommendation. Each tactic should be a specific task someone could execute (not vague advice).
 - "priority": "high", "medium", or "low" based on potential impact
 - "category": One of "content", "seo", "pr", "product", or "technical"
 - "dataInsight": A brief quote of the specific data point driving this recommendation (e.g., "0% visibility on Perplexity", "Ranked #4 avg vs competitor's #1", "Negative sentiment in 30% of mentions")
 
-CRITICAL: Every recommendation MUST cite specific data from the analysis. Generic advice without data references is not acceptable.
+CRITICAL: Every recommendation MUST include both data insights AND specific tactics. Generic advice like "create better content" or "improve SEO" is not acceptable.
 
-Examples of DATA-DRIVEN recommendations:
-- "Increase presence on Perplexity because {brand} has 0% visibility there while appearing in 85% of ChatGPT responses"
-- "Address negative sentiment patterns because 40% of Claude mentions frame {brand} as 'outdated' compared to [competitor]"
-- "Target tech review sites because 0 citations came from CNET, TechRadar, or Wirecutter despite these being top sources for competitors"
+TACTICS EXAMPLES (be this specific):
+For provider gaps:
+- "Publish detailed product guides on Reddit and Stack Overflow, which are heavily weighted by Perplexity's search"
+- "Create structured FAQ content that matches how Claude retrieves information"
+- "Submit brand information to Bing's index, which powers parts of ChatGPT's browsing"
+
+For competitive positioning:
+- "Create dedicated comparison pages (e.g., '{brand} vs [competitor]') targeting head-to-head search queries"
+- "Update product schema markup to highlight unique features competitors lack"
+- "Pitch differentiation stories to tech reviewers who frequently cover [competitor]"
+
+For sentiment issues:
+- "Address the 'outdated' framing by publishing recent innovation announcements on PR Newswire and Business Wire"
+- "Secure updated reviews from CNET, Wirecutter, or TechRadar highlighting recent improvements"
+- "Create case studies showcasing modern use cases to counter legacy brand perception"
+
+For source gaps:
+- "Pitch product reviews to [specific publication names] that competitors are cited from"
+- "Create Wikipedia-style neutral content on industry wikis and knowledge bases"
+- "Publish technical documentation on GitHub or developer-focused platforms"
 
 Recommendations should be tied directly to weaknesses identified in the data:
 - Provider gaps (missing from specific AI providers) - cite which providers and the visibility %
@@ -1037,10 +1054,15 @@ Return ONLY valid JSON in this exact structure:
   "recommendations": [
     {{
       "title": "Recommendation title",
-      "description": "Detailed description with specific data: Take [action] because [data insight]",
+      "description": "Problem statement with specific data insight (1-2 sentences)",
+      "tactics": [
+        "Specific action step 1 - a concrete task someone can execute",
+        "Specific action step 2 - another concrete task",
+        "Specific action step 3 - if needed"
+      ],
       "priority": "high",
       "category": "content",
-      "dataInsight": "Specific data point, e.g., '0% visibility on Perplexity' or 'Ranked #4 vs competitor #1'"
+      "dataInsight": "The specific metric driving this, e.g., '0% visibility on Perplexity'"
     }}
   ]
 }}
