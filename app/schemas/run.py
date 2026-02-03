@@ -203,6 +203,8 @@ class AIRecommendation(BaseModel):
     description: str
     priority: str  # "high", "medium", or "low"
     category: str  # "content", "seo", "pr", "product", or "technical"
+    dataInsight: Optional[str] = None
+    tactics: Optional[List[str]] = None
 
 
 class AISummaryResponse(BaseModel):
