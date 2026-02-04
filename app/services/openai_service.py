@@ -1012,69 +1012,64 @@ CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON.""
         brand: str,
         entity_type: str,
         results_data: str,
-    ) -> List[Dict[str, Any]]:
-        """Generate recommendations as a JSON array."""
+    ) -> str:
+        """Generate recommendations as a prose-style strategy brief."""
 
         system_prompt = (
-            "You are an AI visibility strategist. Your role is to provide specific, actionable "
-            "recommendations to improve brand visibility in AI-generated responses.\n\n"
-            "You provide concrete tactics, not vague advice. Every recommendation must be tied "
-            "to specific data insights and include executable action steps.\n\n"
-            "IMPORTANT: Return ONLY a JSON array. No other text."
+            "You are an AI visibility strategist writing executive strategy briefs. "
+            "Your role is to provide specific, actionable recommendations in a clear, "
+            "narrative prose style.\n\n"
+            "You write for brand, SEO, growth, or product leaders who need actionable guidance. "
+            "Every recommendation must be tied to specific data insights and include concrete tactics.\n\n"
+            "IMPORTANT: Return ONLY plain text prose. Do NOT return JSON. Do NOT use bullet points."
         )
 
-        user_prompt = f"""Based on the following AI visibility data for the {entity_type} "{brand}", provide 3-5 specific recommendations.
+        user_prompt = f"""Based on the following AI visibility data for the {entity_type} "{brand}", write a strategy brief with 3-5 specific recommendations.
 
 DATA:
 {results_data}
 
-OUTPUT FORMAT (STRICT - JSON ARRAY ONLY):
+OUTPUT FORMAT (STRICT - PROSE STYLE):
 
-Return a JSON array where each recommendation has:
-- "title": Short, action-oriented title (e.g., "Target Perplexity Gap", "Improve Review Presence")
-- "description": 1-2 sentences explaining the problem with specific data. Format: "[Problem] because [data insight]."
-- "tactics": Array of 2-4 specific, concrete action steps (not vague advice)
-- "priority": "high", "medium", or "low"
-- "category": One of "content", "seo", "pr", "product", or "technical"
-- "dataInsight": The specific metric driving this (e.g., "0% visibility on Perplexity")
+Write 3-5 recommendation paragraphs. Each paragraph MUST follow this structure:
+1. **Bold title as lead-in** (e.g., "**Close the Perplexity Gap.**")
+2. Data insight woven into the opening sentence (cite specific numbers)
+3. 2-4 specific tactics explained naturally in the prose
 
-TACTICS MUST BE SPECIFIC. Examples of good tactics:
+EXAMPLE PARAGRAPH:
+**Close the Perplexity Gap.** With 0% visibility on Perplexity compared to 85% elsewhere, this represents your biggest untapped opportunity. Focus on publishing detailed answers on Quora for questions in your category—Perplexity indexes these prominently. Engage authentically in relevant Reddit communities (r/[relevant_subreddit]) with genuine product discussions, not promotional content. Ensure your Google Business Profile is complete with all product details, as Perplexity pulls from these sources for local and product queries.
+
+**Strengthen Competitive Positioning Against [Competitor].** [Competitor] currently outranks {brand} in 60% of "best" queries, typically appearing in the #1 or #2 position while {brand} averages #4. Create dedicated comparison landing pages (e.g., "{brand} vs [Competitor]") with detailed feature tables and use-case recommendations. Pitch head-to-head review requests to journalists at publications like TechCrunch, CNET, or Wirecutter who have previously covered [Competitor].
+
+TACTICS MUST BE SPECIFIC - Examples of good tactics woven into prose:
 - "Create a comprehensive brand FAQ page with structured data markup (FAQPage schema)"
-- "Publish in-depth product comparisons on Reddit (r/[relevant_subreddit])"
-- "Submit your site to Bing Webmaster Tools and request indexing"
-- "Create head-to-head comparison landing pages (e.g., '{brand} vs [Competitor]')"
-- "Pitch exclusive product announcements to journalists at TechCrunch, The Verge"
-- "Issue a press release via PR Newswire announcing recent improvements"
+- "Submit your site to Bing Webmaster Tools and request indexing—ChatGPT's browsing relies heavily on Bing"
+- "Pitch exclusive product announcements to journalists at TechCrunch, The Verge, or Wired"
+- "Issue a press release via PR Newswire or Business Wire announcing recent improvements"
+- "Create detailed answers on Quora and Stack Exchange for category-related questions"
 
-BAD tactics (too vague):
+BAD tactics (too vague - never use these):
 - "Create better content"
 - "Improve SEO"
 - "Build more backlinks"
+- "Increase brand awareness"
 
-TIE RECOMMENDATIONS TO DATA WEAKNESSES:
+TIE EACH RECOMMENDATION TO DATA:
 - Provider gaps → cite which providers and visibility %
-- Ranking depth → cite average rank vs competitors
-- Sentiment issues → cite sentiment % breakdown
+- Ranking issues → cite average rank vs competitors
+- Sentiment problems → cite sentiment % breakdown
 - Competitive positioning → name competitors and rank difference
 - Source gaps → name missing source types
 
-EXAMPLE OUTPUT:
-[
-  {{
-    "title": "Close Perplexity Visibility Gap",
-    "description": "{brand} has 0% visibility on Perplexity while achieving 85% on other providers, representing a significant missed opportunity.",
-    "tactics": [
-      "Create detailed answers on Quora for questions related to your category - Perplexity indexes Quora prominently",
-      "Publish in-depth product comparisons on Reddit with genuine community engagement",
-      "Ensure your Google Business Profile is complete with all product/service details"
-    ],
-    "priority": "high",
-    "category": "content",
-    "dataInsight": "0% visibility on Perplexity vs 85% average elsewhere"
-  }}
-]
+STYLE RULES:
+- Use **bold** for recommendation titles only
+- Write in clear, decisive prose—no hedging language
+- Each paragraph should be 3-5 sentences
+- Separate paragraphs with blank lines
+- Do NOT use bullet points or numbered lists
+- Do NOT use JSON formatting
 
-Return ONLY the JSON array, no other text or markdown."""
+Return ONLY the prose paragraphs, no introduction or conclusion."""
 
         try:
             response = await self.chat_completion(
@@ -1082,46 +1077,12 @@ Return ONLY the JSON array, no other text or markdown."""
                 system_prompt=system_prompt,
                 temperature=0.5,
             )
-
-            response_text = response.text.strip()
-            print(f"[OpenAI] Recommendations raw response: {response_text[:200]}...")
-
-            # Remove markdown code blocks if present
-            response_text = re.sub(r"```json?\s*", "", response_text)
-            response_text = re.sub(r"```\s*", "", response_text)
-            response_text = response_text.strip()
-
-            # Try to parse JSON array
-            try:
-                recommendations = json.loads(response_text)
-                if isinstance(recommendations, list):
-                    print(f"[OpenAI] Parsed {len(recommendations)} recommendations")
-                    return recommendations
-                elif isinstance(recommendations, dict) and "recommendations" in recommendations:
-                    # Handle case where GPT returns {"recommendations": [...]}
-                    recs = recommendations["recommendations"]
-                    print(f"[OpenAI] Extracted {len(recs)} recommendations from dict")
-                    return recs
-            except json.JSONDecodeError as e:
-                print(f"[OpenAI] JSON parsing failed: {e}")
-
-            # Fallback: try to find array in response
-            array_match = re.search(r'\[[\s\S]*\]', response_text)
-            if array_match:
-                try:
-                    recommendations = json.loads(array_match.group())
-                    if isinstance(recommendations, list):
-                        print(f"[OpenAI] Extracted {len(recommendations)} recommendations via regex")
-                        return recommendations
-                except json.JSONDecodeError:
-                    pass
-
-            print(f"[OpenAI] Could not parse recommendations from: {response_text[:200]}...")
-            return []
-
+            recommendations_text = response.text.strip()
+            print(f"[OpenAI] Recommendations generated: {len(recommendations_text)} chars")
+            return recommendations_text
         except Exception as e:
             print(f"[OpenAI] Recommendations generation failed: {e}")
-            return []
+            return ""
 
     async def categorize_domains(
         self,
