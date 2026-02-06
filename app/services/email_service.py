@@ -1,5 +1,6 @@
 """Email service for sending report notifications using Resend."""
 
+import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -29,9 +30,18 @@ class EmailService:
                 self._client = resend
                 print("[Email] Resend email service initialized")
             except ImportError:
-                print("[Email] Warning: resend package not installed")
+                print("[Email] Warning: resend package not installed, run: pip install resend")
         else:
             print("[Email] Warning: RESEND_API_KEY not configured, emails will be logged only")
+
+    def _send_sync(self, from_email: str, to_email: str, subject: str, html_content: str) -> dict:
+        """Synchronous email send - to be run in thread pool."""
+        return self._client.Emails.send({
+            "from": from_email,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+        })
 
     async def send_report_email(
         self,
@@ -49,8 +59,21 @@ class EmailService:
         Returns:
             True if email was sent successfully, False otherwise
         """
+        print(f"[Email] Preparing email for {to_email}, report: {report.name}, run: {run.id}")
+
         # Build summary statistics
-        summary = self._build_summary(run)
+        try:
+            summary = self._build_summary(run)
+        except Exception as e:
+            print(f"[Email] Error building summary: {e}")
+            import traceback
+            traceback.print_exc()
+            summary = {
+                "total_responses": 0,
+                "visibility_rate": 0,
+                "by_provider": {},
+                "top_competitors": [],
+            }
 
         # Generate email content
         subject = f"AI Visibility Report: {report.brand} - {datetime.now().strftime('%B %d, %Y')}"
@@ -64,20 +87,25 @@ class EmailService:
 
         if not self._client:
             print(f"[Email] Would send email to {to_email}: {subject}")
-            print(f"[Email] Summary: {summary}")
+            print(f"[Email] Summary: visibility_rate={summary.get('visibility_rate', 0):.1%}, total_responses={summary.get('total_responses', 0)}")
             return True
 
         try:
-            self._client.Emails.send({
-                "from": "AI Visibility <reports@aivis.io>",
-                "to": [to_email],
-                "subject": subject,
-                "html": html_content,
-            })
-            print(f"[Email] Report email sent to {to_email}")
+            # Run synchronous Resend API call in thread pool to avoid blocking
+            from_email = "AI Visibility <reports@aivis.io>"
+            result = await asyncio.to_thread(
+                self._send_sync,
+                from_email,
+                to_email,
+                subject,
+                html_content,
+            )
+            print(f"[Email] Report email sent to {to_email}, result: {result}")
             return True
         except Exception as e:
             print(f"[Email] Failed to send email to {to_email}: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def _build_summary(self, run: "Run") -> Dict:

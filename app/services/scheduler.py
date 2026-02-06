@@ -10,6 +10,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import selectinload
 
 from app.core.database import engine
 from app.models.run import Run
@@ -229,7 +230,13 @@ class SchedulerService:
 
         while True:
             async with session_factory() as session:
-                run = await session.get(Run, run_id)
+                # Use query with selectinload to ensure results are loaded
+                result = await session.execute(
+                    select(Run)
+                    .where(Run.id == run_id)
+                    .options(selectinload(Run.results))
+                )
+                run = result.scalar_one_or_none()
 
                 if not run:
                     print(f"[Scheduler] Run {run_id} not found")
@@ -237,6 +244,7 @@ class SchedulerService:
 
                 if run.is_complete:
                     print(f"[Scheduler] Run {run_id} completed with status: {run.status}")
+                    print(f"[Scheduler] Run has {len(run.results) if run.results else 0} results")
 
                     # Load report and user for email
                     report = await session.get(ScheduledReport, report_id)
@@ -251,8 +259,15 @@ class SchedulerService:
                                     report=report,
                                     run=run,
                                 )
+                                print(f"[Scheduler] Email sent successfully to {user.email}")
                             except Exception as e:
                                 print(f"[Scheduler] Failed to send email: {e}")
+                                import traceback
+                                traceback.print_exc()
+                        else:
+                            print(f"[Scheduler] No user email found for report {report_id}")
+                    else:
+                        print(f"[Scheduler] Report {report_id} not found")
                     return
 
             # Check timeout
