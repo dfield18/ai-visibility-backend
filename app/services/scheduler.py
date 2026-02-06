@@ -28,8 +28,12 @@ class SchedulerService:
     """
 
     def __init__(self):
-        """Initialize the scheduler service."""
-        self.scheduler = AsyncIOScheduler()
+        """Initialize the scheduler service.
+
+        Note: The scheduler is created lazily in start() to ensure
+        it attaches to the correct event loop.
+        """
+        self.scheduler: Optional[AsyncIOScheduler] = None
         self.executor = RunExecutor()
         self._session_factory: Optional[async_sessionmaker] = None
 
@@ -44,8 +48,22 @@ class SchedulerService:
         return self._session_factory
 
     async def start(self) -> None:
-        """Start the scheduler and load all active scheduled reports."""
+        """Start the scheduler and load all active scheduled reports.
+
+        Creates the AsyncIOScheduler here (not in __init__) to ensure
+        it attaches to the correct running event loop.
+        """
         print("[Scheduler] Starting scheduler service...")
+
+        # Create scheduler with the current event loop
+        # This must happen here, not in __init__, because the event loop
+        # doesn't exist when the module is imported
+        try:
+            loop = asyncio.get_running_loop()
+            self.scheduler = AsyncIOScheduler(event_loop=loop)
+        except RuntimeError:
+            # Fallback if no running loop (shouldn't happen in FastAPI context)
+            self.scheduler = AsyncIOScheduler()
 
         # Add the main job that checks for and runs scheduled reports
         self.scheduler.add_job(
@@ -53,6 +71,7 @@ class SchedulerService:
             CronTrigger(minute="*/5"),  # Check every 5 minutes
             id="check_scheduled_reports",
             replace_existing=True,
+            misfire_grace_time=300,  # Allow 5 min grace period for misfired jobs
         )
 
         self.scheduler.start()
@@ -64,38 +83,48 @@ class SchedulerService:
     async def shutdown(self) -> None:
         """Shutdown the scheduler gracefully."""
         print("[Scheduler] Shutting down scheduler service...")
-        self.scheduler.shutdown(wait=True)
+        if self.scheduler is not None:
+            self.scheduler.shutdown(wait=True)
         print("[Scheduler] Scheduler shutdown complete")
 
     async def _check_and_run_reports(self) -> None:
         """Check for reports that need to run and execute them."""
         print("[Scheduler] Checking for scheduled reports to run...")
 
-        session_factory = self._get_session_factory()
+        try:
+            session_factory = self._get_session_factory()
 
-        async with session_factory() as session:
-            # Find all active reports where next_run_at is in the past
-            now = datetime.now(ZoneInfo("UTC"))
-            result = await session.execute(
-                select(ScheduledReport)
-                .where(ScheduledReport.is_active == True)
-                .where(ScheduledReport.next_run_at <= now)
-            )
-            reports = result.scalars().all()
+            async with session_factory() as session:
+                # Find all active reports where next_run_at is in the past
+                now = datetime.now(ZoneInfo("UTC"))
+                print(f"[Scheduler] Current UTC time: {now.isoformat()}")
 
-            if not reports:
-                print("[Scheduler] No reports ready to run")
-                return
+                result = await session.execute(
+                    select(ScheduledReport)
+                    .where(ScheduledReport.is_active == True)
+                    .where(ScheduledReport.next_run_at <= now)
+                )
+                reports = result.scalars().all()
 
-            print(f"[Scheduler] Found {len(reports)} report(s) to run")
+                if not reports:
+                    print("[Scheduler] No reports ready to run")
+                    return
 
-            for report in reports:
-                try:
-                    await self._execute_report(session, report)
-                except Exception as e:
-                    print(f"[Scheduler] Error executing report {report.id}: {e}")
+                print(f"[Scheduler] Found {len(reports)} report(s) to run")
 
-            await session.commit()
+                for report in reports:
+                    try:
+                        await self._execute_report(session, report)
+                    except Exception as e:
+                        print(f"[Scheduler] Error executing report {report.id}: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+                await session.commit()
+        except Exception as e:
+            print(f"[Scheduler] Error checking for reports: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def _execute_report(
         self,
