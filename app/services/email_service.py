@@ -93,7 +93,7 @@ class EmailService:
 
         try:
             # Run synchronous Resend API call in thread pool to avoid blocking
-            from_email = "AI Visibility <reports@aivis.io>"
+            from_email = "AI Visibility <onboarding@resend.dev>"
             result = await asyncio.to_thread(
                 self._send_sync,
                 from_email,
