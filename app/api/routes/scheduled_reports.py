@@ -1,5 +1,6 @@
 """Scheduled reports API endpoints for managing automated reports."""
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
@@ -7,13 +8,16 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DatabaseDep
 from app.core.auth import CurrentUser
+from app.core.database import engine
 from app.models.scheduled_report import ScheduledReport
 from app.models.session import Session
 from app.models.run import Run
+from app.models.user import User
 from app.schemas.scheduled_report import (
     RunNowResponse,
     ScheduledReportCreate,
@@ -29,6 +33,99 @@ router = APIRouter()
 
 # Global executor instance
 executor = RunExecutor()
+
+# Session factory for background tasks
+_session_factory: Optional[async_sessionmaker] = None
+
+
+def _get_session_factory() -> async_sessionmaker:
+    """Get or create the session factory for background tasks."""
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = async_sessionmaker(
+            bind=engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+    return _session_factory
+
+
+async def _execute_run_and_send_email(
+    report_id: UUID,
+    run_id: UUID,
+    user_email: str,
+    config: dict,
+) -> None:
+    """Execute a run and send email notification when complete.
+
+    Args:
+        report_id: The scheduled report ID
+        run_id: The run ID
+        user_email: Email address to send notification to
+        config: Run configuration
+    """
+    try:
+        # Execute the run
+        await executor.execute_run(run_id, config)
+
+        # Wait for completion and send email
+        await _wait_and_send_email(report_id, run_id, user_email)
+
+    except Exception as e:
+        print(f"[RunNow] Error executing run {run_id}: {e}")
+
+
+async def _wait_and_send_email(
+    report_id: UUID,
+    run_id: UUID,
+    user_email: str,
+    max_wait_seconds: int = 3600,
+) -> None:
+    """Wait for a run to complete and send the email notification.
+
+    Args:
+        report_id: The scheduled report ID
+        run_id: The run ID
+        user_email: Email address to send notification to
+        max_wait_seconds: Maximum time to wait for completion
+    """
+    session_factory = _get_session_factory()
+    start_time = datetime.utcnow()
+
+    while True:
+        async with session_factory() as session:
+            run = await session.get(Run, run_id)
+
+            if not run:
+                print(f"[RunNow] Run {run_id} not found")
+                return
+
+            if run.is_complete:
+                print(f"[RunNow] Run {run_id} completed with status: {run.status}")
+
+                # Load report for email
+                report = await session.get(ScheduledReport, report_id)
+                if report and user_email:
+                    try:
+                        from app.services.email_service import email_service
+                        await email_service.send_report_email(
+                            to_email=user_email,
+                            report=report,
+                            run=run,
+                        )
+                        print(f"[RunNow] Email sent to {user_email}")
+                    except Exception as e:
+                        print(f"[RunNow] Failed to send email: {e}")
+                return
+
+        # Check timeout
+        elapsed = (datetime.utcnow() - start_time).total_seconds()
+        if elapsed > max_wait_seconds:
+            print(f"[RunNow] Timeout waiting for run {run_id}")
+            return
+
+        # Wait before checking again
+        await asyncio.sleep(10)
 
 
 def calculate_next_run(
@@ -449,8 +546,14 @@ async def run_report_now(
     await db.commit()
     await db.refresh(run)
 
-    # Start background execution
-    background_tasks.add_task(executor.execute_run, run.id, config)
+    # Start background execution with email notification
+    background_tasks.add_task(
+        _execute_run_and_send_email,
+        report.id,
+        run.id,
+        db_user.email,
+        config,
+    )
 
     return RunNowResponse(
         id=report.id,
