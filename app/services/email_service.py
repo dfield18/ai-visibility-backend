@@ -1,8 +1,9 @@
 """Email service for sending report notifications using Resend."""
 
 import asyncio
+import html
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from app.core.config import settings
 
@@ -186,6 +187,10 @@ class EmailService:
         """
         visibility_pct = int(summary.get("visibility_rate", 0) * 100)
 
+        # Escape user-provided content to prevent XSS
+        safe_report_name = html.escape(report_name)
+        safe_brand = html.escape(brand)
+
         # Format provider breakdown
         provider_rows = ""
         for provider, stats in summary.get("by_provider", {}).items():
@@ -195,7 +200,7 @@ class EmailService:
                 "anthropic": "Claude",
                 "perplexity": "Perplexity",
                 "ai_overviews": "Google AI Overviews",
-            }.get(provider, provider)
+            }.get(provider, html.escape(provider))
             rate_pct = int(stats.get("rate", 0) * 100)
             provider_rows += f"""
                 <tr>
@@ -207,16 +212,18 @@ class EmailService:
                 </tr>
             """
 
-        # Format competitor mentions
+        # Format competitor mentions (escape to prevent XSS)
         competitor_items = ""
         for comp, count in summary.get("top_competitors", []):
-            competitor_items += f'<li style="margin-bottom: 4px;">{comp}: {count} mentions</li>'
+            safe_comp = html.escape(comp)
+            competitor_items += f'<li style="margin-bottom: 4px;">{safe_comp}: {count} mentions</li>'
 
         if not competitor_items:
             competitor_items = '<li style="color: #6b7280;">No competitor mentions detected</li>'
 
-        # Get frontend URL
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else "http://localhost:3000"
+        # Get frontend URL (handle both empty list and None)
+        cors_origins = getattr(settings, 'CORS_ORIGINS', None) or []
+        frontend_url = cors_origins[0] if cors_origins else "http://localhost:3000"
         results_url = f"{frontend_url}/results/{run_id}"
 
         return f"""
@@ -235,7 +242,7 @@ class EmailService:
                     AI Visibility Report
                 </h1>
                 <p style="margin: 8px 0 0; color: #E8F0E8; font-size: 14px;">
-                    {report_name}
+                    {safe_report_name}
                 </p>
             </div>
 
@@ -248,7 +255,7 @@ class EmailService:
                         {visibility_pct}%
                     </p>
                     <p style="margin: 8px 0 0; color: #6b7280; font-size: 12px;">
-                        {brand} mentioned in {summary.get('total_responses', 0)} AI responses
+                        {safe_brand} mentioned in {summary.get('total_responses', 0)} AI responses
                     </p>
                 </div>
 

@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Set
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -37,6 +37,7 @@ class SchedulerService:
         self.scheduler: Optional[AsyncIOScheduler] = None
         self.executor = RunExecutor()
         self._session_factory: Optional[async_sessionmaker] = None
+        self._background_tasks: Set[asyncio.Task] = set()  # Prevent GC of tasks
 
     def _get_session_factory(self) -> async_sessionmaker:
         """Get or create the session factory."""
@@ -78,14 +79,21 @@ class SchedulerService:
         self.scheduler.start()
         print("[Scheduler] Scheduler started successfully")
 
-        # Run an initial check
-        asyncio.create_task(self._check_and_run_reports())
+        # Run an initial check (store reference to prevent GC)
+        task = asyncio.create_task(self._check_and_run_reports())
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     async def shutdown(self) -> None:
         """Shutdown the scheduler gracefully."""
         print("[Scheduler] Shutting down scheduler service...")
         if self.scheduler is not None:
-            self.scheduler.shutdown(wait=True)
+            # Run blocking shutdown in thread pool to avoid blocking event loop
+            await asyncio.to_thread(self.scheduler.shutdown, wait=True)
+        # Cancel any remaining background tasks
+        for task in self._background_tasks:
+            task.cancel()
+        self._background_tasks.clear()
         print("[Scheduler] Scheduler shutdown complete")
 
     async def _check_and_run_reports(self) -> None:
@@ -102,7 +110,7 @@ class SchedulerService:
 
                 result = await session.execute(
                     select(ScheduledReport)
-                    .where(ScheduledReport.is_active == True)
+                    .where(ScheduledReport.is_active.is_(True))
                     .where(ScheduledReport.next_run_at <= now)
                 )
                 reports = result.scalars().all()
@@ -141,12 +149,18 @@ class SchedulerService:
         print(f"[Scheduler] Executing report '{report.name}' (ID: {report.id})")
 
         # Create a session for the run
+        now_utc = datetime.now(ZoneInfo("UTC"))
         run_session = Session(
-            session_id=f"scheduled-report-{report.id}-{datetime.utcnow().timestamp()}",
-            expires_at=datetime.utcnow() + timedelta(days=7),
+            session_id=f"scheduled-report-{report.id}-{now_utc.timestamp()}",
+            expires_at=now_utc + timedelta(days=7),
         )
         session.add(run_session)
         await session.flush()
+
+        # Validate report has required data
+        if not report.prompts or not report.providers or not report.temperatures:
+            print(f"[Scheduler] Report '{report.name}' has empty prompts/providers/temperatures, skipping")
+            return
 
         # Create run config
         config = {
@@ -163,7 +177,7 @@ class SchedulerService:
             len(report.prompts) *
             len(report.providers) *
             len(report.temperatures) *
-            report.repeats
+            max(report.repeats, 1)  # Ensure at least 1
         )
 
         # Create run record
@@ -184,8 +198,10 @@ class SchedulerService:
 
         await session.commit()
 
-        # Execute the run in the background
-        asyncio.create_task(self._run_and_notify(report.id, run.id, config))
+        # Execute the run in the background (store reference to prevent GC)
+        task = asyncio.create_task(self._run_and_notify(report.id, run.id, config))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
         print(f"[Scheduler] Started run {run.id} for report '{report.name}'")
 
@@ -226,7 +242,7 @@ class SchedulerService:
             max_wait_seconds: Maximum time to wait for completion
         """
         session_factory = self._get_session_factory()
-        start_time = datetime.utcnow()
+        start_time = datetime.now(ZoneInfo("UTC"))
 
         while True:
             async with session_factory() as session:
@@ -271,7 +287,7 @@ class SchedulerService:
                     return
 
             # Check timeout
-            elapsed = (datetime.utcnow() - start_time).total_seconds()
+            elapsed = (datetime.now(ZoneInfo("UTC")) - start_time).total_seconds()
             if elapsed > max_wait_seconds:
                 print(f"[Scheduler] Timeout waiting for run {run_id}")
                 return
@@ -295,20 +311,24 @@ class SchedulerService:
 
         now = datetime.now(tz)
 
-        # Start with today/now at the specified hour
+        # Start with today at the specified hour
         next_run = now.replace(hour=report.hour, minute=0, second=0, microsecond=0)
 
         if report.frequency == "daily":
-            # Schedule for tomorrow
-            next_run += timedelta(days=1)
+            # If the scheduled time has already passed today, schedule for tomorrow
+            if next_run <= now:
+                next_run += timedelta(days=1)
         else:  # weekly
             day_of_week = report.day_of_week if report.day_of_week is not None else 0
             current_day = now.weekday()
             days_ahead = day_of_week - current_day
 
-            # Always schedule for next week
-            if days_ahead <= 0:
+            if days_ahead < 0:
+                # Target day already passed this week
                 days_ahead += 7
+            elif days_ahead == 0 and next_run <= now:
+                # Same day but time already passed, schedule for next week
+                days_ahead = 7
 
             next_run += timedelta(days=days_ahead)
 
