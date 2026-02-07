@@ -19,10 +19,11 @@ python -m alembic current || echo "No current revision (fresh database)"
 if python -m alembic upgrade head; then
     echo "=== Migration complete ==="
     python -m alembic current
-else
-    echo "=== Migration failed, applying schema fixes directly ==="
-    # Fallback: Apply missing columns directly via psycopg
-    python << 'PYEOF'
+fi
+
+echo "=== Verifying schema (applying any missing columns) ==="
+# Apply missing columns directly via psycopg
+python << 'PYEOF'
 import os
 import psycopg2
 
@@ -120,7 +121,6 @@ except Exception as e:
     print(f"Error applying schema fixes: {e}")
     # Don't fail startup - the app might still work
 PYEOF
-fi
 
 echo ""
 echo "=== Starting server ==="
