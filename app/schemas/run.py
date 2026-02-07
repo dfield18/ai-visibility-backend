@@ -168,6 +168,8 @@ class RunStatusResponse(BaseModel):
         completed_at: When the run completed (if applicable).
         summary: Aggregated statistics.
         results: List of individual results.
+        config: Run configuration (prompts, providers, etc.).
+        extension_info: Information about parent/child run relationships.
     """
 
     run_id: UUID
@@ -184,6 +186,8 @@ class RunStatusResponse(BaseModel):
     completed_at: Optional[datetime]
     summary: Optional[RunSummary]
     results: List[ResultItem]
+    config: Optional[Dict[str, Any]] = None
+    extension_info: Optional[Dict[str, Any]] = None
 
 
 class CancelResponse(BaseModel):
@@ -203,3 +207,69 @@ class AISummaryResponse(BaseModel):
     summary: str
     recommendations: str = ""  # Prose-style strategy brief
     generated_at: datetime
+
+
+class ExtendRunRequest(BaseModel):
+    """Request body for extending an existing run with new prompts/competitors/providers.
+
+    At least one of the fields must be provided. The backend will calculate
+    which combinations are truly new and create a child run for only those.
+    """
+
+    add_prompts: Optional[List[str]] = None
+    add_competitors: Optional[List[str]] = None
+    add_providers: Optional[List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]]] = None
+
+    @field_validator("add_prompts")
+    @classmethod
+    def validate_add_prompts(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Validate and clean prompts."""
+        if v is None:
+            return None
+        cleaned = [p.strip() for p in v if p.strip()]
+        return cleaned if cleaned else None
+
+    @field_validator("add_competitors")
+    @classmethod
+    def validate_add_competitors(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Validate and clean competitors."""
+        if v is None:
+            return None
+        cleaned = [c.strip() for c in v if c.strip()]
+        return cleaned if cleaned else None
+
+
+class ExtendRunResponse(BaseModel):
+    """Response after extending a run with new combinations.
+
+    Attributes:
+        run_id: The UUID of the new child run.
+        status: Initial status of the child run (queued).
+        total_calls: Number of new API calls to make.
+        estimated_cost: Estimated cost for the new calls.
+        estimated_duration_seconds: Estimated time to complete.
+    """
+
+    run_id: UUID
+    status: str
+    total_calls: int
+    estimated_cost: float
+    estimated_duration_seconds: int
+
+
+class RunConfigResponse(BaseModel):
+    """Run configuration details included in status response."""
+
+    prompts: List[str]
+    competitors: List[str]
+    providers: List[str]
+    temperatures: List[float]
+    repeats: int
+
+
+class ExtensionInfo(BaseModel):
+    """Information about run extensions (parent/child relationships)."""
+
+    parent_run_id: Optional[UUID] = None
+    child_run_ids: List[UUID] = []
+    has_running_extension: bool = False

@@ -61,6 +61,12 @@ class Run(Base):
         nullable=True,  # Nullable for existing runs before user system
         index=True,
     )
+    parent_run_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         default="queued",
@@ -133,6 +139,17 @@ class Run(Base):
         "UsageRecord",
         back_populates="run",
         uselist=False,
+    )
+    parent_run: Mapped[Optional["Run"]] = relationship(
+        "Run",
+        remote_side=[id],
+        foreign_keys=[parent_run_id],
+        back_populates="child_runs",
+    )
+    child_runs: Mapped[List["Run"]] = relationship(
+        "Run",
+        back_populates="parent_run",
+        foreign_keys=[parent_run_id],
     )
 
     __table_args__ = (
