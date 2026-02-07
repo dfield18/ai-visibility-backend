@@ -19,6 +19,12 @@ from app.schemas.scheduled_report import (
     ScheduledReportUpdate,
     ToggleResponse,
 )
+from app.schemas.site_audit import (
+    SiteAuditRequest,
+    SiteAuditResponse,
+    SiteAuditResult,
+    SiteAuditListResponse,
+)
 
 __all__ = [
     "SuggestRequest",
@@ -37,4 +43,8 @@ __all__ = [
     "ScheduledReportListResponse",
     "ToggleResponse",
     "RunNowResponse",
+    "SiteAuditRequest",
+    "SiteAuditResponse",
+    "SiteAuditResult",
+    "SiteAuditListResponse",
 ]

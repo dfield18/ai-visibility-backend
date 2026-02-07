@@ -13,6 +13,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.run import Run
+    from app.models.site_audit import SiteAudit
 
 
 class Session(Base):
@@ -63,6 +64,12 @@ class Session(Base):
     # Relationships
     runs: Mapped[List["Run"]] = relationship(
         "Run",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    site_audits: Mapped[List["SiteAudit"]] = relationship(
+        "SiteAudit",
         back_populates="session",
         cascade="all, delete-orphan",
         lazy="selectin",
