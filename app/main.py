@@ -30,14 +30,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug mode: {settings.DEBUG}")
 
-    # Test database connection
+    # Test database connection and verify schema
     try:
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
             print("Database connection successful!")
+
+            # Verify parent_run_id column exists
+            result = await session.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'runs' AND column_name = 'parent_run_id'
+            """))
+            if not result.fetchone():
+                print("Adding parent_run_id column to runs table...")
+                await session.execute(text(
+                    "ALTER TABLE runs ADD COLUMN parent_run_id UUID REFERENCES runs(id) ON DELETE SET NULL"
+                ))
+                await session.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_runs_parent_run_id ON runs (parent_run_id)"
+                ))
+                await session.commit()
+                print("Added parent_run_id column successfully!")
+            else:
+                print("parent_run_id column already exists")
     except Exception as e:
-        print(f"Warning: Database connection failed: {e}")
-        print("The application will start but database operations will fail.")
+        print(f"Warning: Database setup issue: {e}")
+        print("The application will start but some operations may fail.")
 
     # Start scheduler service for automated reports
     try:
