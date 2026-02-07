@@ -75,6 +75,19 @@ try:
     else:
         print("all_brands_mentioned column already exists")
 
+    # Check and add parent_run_id column to runs table
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'runs' AND column_name = 'parent_run_id'
+    """)
+    if not cur.fetchone():
+        print("Adding parent_run_id column to runs...")
+        cur.execute("ALTER TABLE runs ADD COLUMN parent_run_id UUID REFERENCES runs(id) ON DELETE SET NULL")
+        cur.execute("CREATE INDEX ix_runs_parent_run_id ON runs (parent_run_id)")
+        print("Added parent_run_id column")
+    else:
+        print("parent_run_id column already exists")
+
     # Check and create cached_suggestions table
     cur.execute("""
         SELECT table_name FROM information_schema.tables
