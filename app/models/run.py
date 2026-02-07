@@ -142,14 +142,14 @@ class Run(Base):
     )
     parent_run: Mapped[Optional["Run"]] = relationship(
         "Run",
-        remote_side=[id],
-        foreign_keys=[parent_run_id],
+        remote_side="Run.id",
+        foreign_keys="Run.parent_run_id",
         back_populates="child_runs",
     )
     child_runs: Mapped[List["Run"]] = relationship(
         "Run",
         back_populates="parent_run",
-        foreign_keys=[parent_run_id],
+        foreign_keys="Run.parent_run_id",
     )
 
     __table_args__ = (
