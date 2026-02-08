@@ -121,16 +121,28 @@ class GrokService:
 
         print(f"[Grok] Making API call to {self.BASE_URL}/chat/completions with model {model}")
 
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            response = await client.post(
-                f"{self.BASE_URL}/chat/completions",
-                headers=self._get_headers(),
-                json=payload,
-            )
-            if not response.is_success:
-                print(f"[Grok] Error response: {response.status_code} - {response.text}")
-            response.raise_for_status()
-            data = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                response = await client.post(
+                    f"{self.BASE_URL}/chat/completions",
+                    headers=self._get_headers(),
+                    json=payload,
+                )
+                print(f"[Grok] Got response with status: {response.status_code}")
+                if not response.is_success:
+                    print(f"[Grok] Error response: {response.status_code} - {response.text}")
+                response.raise_for_status()
+                data = response.json()
+                print(f"[Grok] Successfully parsed JSON response")
+        except httpx.TimeoutException as e:
+            print(f"[Grok] TIMEOUT ERROR: {e}")
+            raise
+        except httpx.HTTPStatusError as e:
+            print(f"[Grok] HTTP ERROR: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            print(f"[Grok] UNEXPECTED ERROR: {type(e).__name__}: {e}")
+            raise
 
         # Extract content from response (OpenAI-compatible format)
         content = data["choices"][0]["message"]["content"]

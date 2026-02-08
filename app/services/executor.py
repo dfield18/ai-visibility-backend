@@ -304,17 +304,21 @@ class RunExecutor:
                 print(f"[Executor] Grok provider requested, service available: {self.grok_service is not None}")
                 if not self.grok_service:
                     raise ValueError("Grok service not initialized - check GROK_API_KEY")
-                response = await self.grok_service.generate_content(
-                    prompt=prompt,
-                    temperature=temperature,
-                )
-                result.response_text = response.text
-                result.model = response.model
-                result.tokens = response.tokens_input + response.tokens_output
-                result.cost = response.cost
-                result.sources = response.sources
-                cost = response.cost
-                print(f"[Executor] Grok call successful, response length: {len(response.text)}")
+                try:
+                    response = await self.grok_service.generate_content(
+                        prompt=prompt,
+                        temperature=temperature,
+                    )
+                    result.response_text = response.text
+                    result.model = response.model
+                    result.tokens = response.tokens_input + response.tokens_output
+                    result.cost = response.cost
+                    result.sources = response.sources
+                    cost = response.cost
+                    print(f"[Executor] Grok call successful, response length: {len(response.text)}")
+                except Exception as e:
+                    print(f"[Executor] Grok call FAILED with error: {type(e).__name__}: {e}")
+                    raise
 
             else:
                 raise ValueError(f"Provider {provider} not available")
