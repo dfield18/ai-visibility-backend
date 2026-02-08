@@ -1,10 +1,13 @@
 """Run executor service for parallel API call execution."""
 
 import asyncio
+import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -328,10 +331,11 @@ class RunExecutor:
                     raise
 
             elif provider == "llama":
-                print(f"[Executor] Llama provider requested, service available: {self.llama_service is not None}")
+                logger.info(f"[Executor] Llama provider requested, service available: {self.llama_service is not None}")
                 if not self.llama_service:
                     raise ValueError("Llama service not initialized - check LLAMA_API_KEY")
                 try:
+                    logger.info(f"[Executor] Calling Llama/Groq API for prompt: {prompt[:50]}...")
                     response = await self.llama_service.generate_content(
                         prompt=prompt,
                         temperature=temperature,
@@ -342,9 +346,9 @@ class RunExecutor:
                     result.cost = response.cost
                     result.sources = response.sources
                     cost = response.cost
-                    print(f"[Executor] Llama call successful, response length: {len(response.text)}")
+                    logger.info(f"[Executor] Llama/Groq call successful, model: {response.model}, response length: {len(response.text)}")
                 except Exception as e:
-                    print(f"[Executor] Llama call FAILED with error: {type(e).__name__}: {e}")
+                    logger.error(f"[Executor] Llama/Groq call FAILED with error: {type(e).__name__}: {e}")
                     raise
 
             else:
