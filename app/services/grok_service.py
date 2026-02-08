@@ -68,6 +68,7 @@ class GrokService:
         self.api_key = settings.GROK_API_KEY
         if not self.api_key:
             raise ValueError("GROK_API_KEY not configured")
+        print(f"[Grok] Service initialized with API key: {self.api_key[:10]}...")
 
     def _get_headers(self) -> Dict[str, str]:
         """Get headers for API requests."""
@@ -117,6 +118,8 @@ class GrokService:
             "temperature": temperature,
             "max_tokens": 2048,
         }
+
+        print(f"[Grok] Making API call to {self.BASE_URL}/chat/completions with model {model}")
 
         async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(

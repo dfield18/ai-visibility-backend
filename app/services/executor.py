@@ -300,7 +300,10 @@ class RunExecutor:
                 result.sources = response.sources
                 cost = response.cost
 
-            elif provider == "grok" and self.grok_service:
+            elif provider == "grok":
+                print(f"[Executor] Grok provider requested, service available: {self.grok_service is not None}")
+                if not self.grok_service:
+                    raise ValueError("Grok service not initialized - check GROK_API_KEY")
                 response = await self.grok_service.generate_content(
                     prompt=prompt,
                     temperature=temperature,
@@ -311,6 +314,7 @@ class RunExecutor:
                 result.cost = response.cost
                 result.sources = response.sources
                 cost = response.cost
+                print(f"[Executor] Grok call successful, response length: {len(response.text)}")
 
             else:
                 raise ValueError(f"Provider {provider} not available")
