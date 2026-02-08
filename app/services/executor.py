@@ -14,6 +14,7 @@ from app.models.result import Result
 from app.models.run import Run
 from app.services.anthropic_service import AnthropicService
 from app.services.gemini_service import GeminiService
+from app.services.grok_service import GrokService
 from app.services.openai_service import OpenAIService
 from app.services.perplexity_service import PerplexityService
 from app.services.serpapi_service import SerpAPIService
@@ -39,6 +40,7 @@ class RunExecutor:
         self.gemini_service: Optional[GeminiService] = None
         self.anthropic_service: Optional[AnthropicService] = None
         self.perplexity_service: Optional[PerplexityService] = None
+        self.grok_service: Optional[GrokService] = None
         self.serpapi_service: Optional[SerpAPIService] = None
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
 
@@ -62,6 +64,11 @@ class RunExecutor:
             self.perplexity_service = PerplexityService()
         except ValueError as e:
             print(f"Perplexity service not available: {e}")
+
+        try:
+            self.grok_service = GrokService()
+        except ValueError as e:
+            print(f"Grok service not available: {e}")
 
         try:
             self.serpapi_service = SerpAPIService()
@@ -285,6 +292,18 @@ class RunExecutor:
                     prompt=prompt,
                     temperature=temperature,
                     country=country,
+                )
+                result.response_text = response.text
+                result.model = response.model
+                result.tokens = response.tokens_input + response.tokens_output
+                result.cost = response.cost
+                result.sources = response.sources
+                cost = response.cost
+
+            elif provider == "grok" and self.grok_service:
+                response = await self.grok_service.generate_content(
+                    prompt=prompt,
+                    temperature=temperature,
                 )
                 result.response_text = response.text
                 result.model = response.model
