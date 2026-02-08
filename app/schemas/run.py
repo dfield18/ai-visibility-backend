@@ -26,7 +26,7 @@ class RunRequest(BaseModel):
     search_type: Literal["brand", "category"] = Field(default="brand")
     prompts: List[str] = Field(..., min_length=1, max_length=10)
     competitors: List[str] = Field(..., min_length=1, max_length=10)
-    providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]] = Field(..., min_length=1)
+    providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews", "grok"]] = Field(..., min_length=1)
     temperatures: List[float] = Field(..., min_length=1)
     repeats: int = Field(default=1, ge=1, le=10)
     openai_model: Literal["gpt-4o-mini", "gpt-4o"] = Field(default="gpt-4o-mini")
@@ -218,7 +218,7 @@ class ExtendRunRequest(BaseModel):
 
     add_prompts: Optional[List[str]] = None
     add_competitors: Optional[List[str]] = None
-    add_providers: Optional[List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]]] = None
+    add_providers: Optional[List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews", "grok"]]] = None
 
     @field_validator("add_prompts")
     @classmethod
