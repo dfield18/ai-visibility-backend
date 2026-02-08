@@ -27,11 +27,10 @@ class GrokResponse:
 
     # Pricing per 1M tokens (xAI pricing as of 2024)
     # grok-2: $2 input, $10 output per 1M tokens
-    # grok-2-mini: $0.30 input, $0.50 output per 1M tokens (estimated)
     MODEL_PRICING = {
-        "grok-2": {"input": 0.002, "output": 0.010},  # per 1K tokens
-        "grok-2-mini": {"input": 0.0003, "output": 0.0005},  # per 1K tokens
-        "grok-3": {"input": 0.003, "output": 0.015},  # estimated
+        "grok-2-1212": {"input": 0.002, "output": 0.010},  # per 1K tokens
+        "grok-2-latest": {"input": 0.002, "output": 0.010},  # per 1K tokens
+        "grok-beta": {"input": 0.005, "output": 0.015},  # per 1K tokens (older model)
     }
 
     def __init__(
@@ -39,7 +38,7 @@ class GrokResponse:
         text: str,
         tokens_input: int,
         tokens_output: int,
-        model: str = "grok-2",
+        model: str = "grok-2-1212",
         sources: Optional[List[Dict[str, str]]] = None,
     ):
         self.text = text
@@ -61,7 +60,7 @@ class GrokService:
     """
 
     BASE_URL = "https://api.x.ai/v1"
-    MODEL = "grok-2"  # Default model
+    MODEL = "grok-2-1212"  # Default model (use versioned name)
 
     def __init__(self):
         """Initialize the Grok service."""
@@ -87,7 +86,7 @@ class GrokService:
         self,
         prompt: str,
         temperature: float = 0.7,
-        model: str = "grok-2",
+        model: str = "grok-2-1212",
     ) -> GrokResponse:
         """Generate content using Grok with web search capabilities.
 
