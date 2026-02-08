@@ -167,7 +167,29 @@ async def generate_suggestions(
         )
 
     try:
-        if request.search_type == "category":
+        if request.search_type == "local":
+            # For local searches, generate prompts with location context
+            # and list local businesses in that category/location
+            prompts = await service.generate_local_prompts(
+                category=request.brand,
+                location=request.location,
+            )
+            # Update old years to current year in suggestions
+            prompts = update_years_in_prompts(prompts)
+            businesses = await service.generate_local_businesses(
+                category=request.brand,
+                location=request.location,
+            )
+
+            # Note: Local searches are not cached since they're location-specific
+            # and locations have high cardinality
+
+            return SuggestResponse(
+                brand=request.brand,
+                prompts=prompts,
+                competitors=businesses,  # Local businesses to track
+            )
+        elif request.search_type == "category":
             # For category searches, generate prompts for the category
             # and list brands in that category
             prompts = await service.generate_category_prompts(

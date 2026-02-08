@@ -417,6 +417,112 @@ class OpenAIService:
             print(f"OpenAI category brands generation failed: {e}")
             return self._get_fallback_category_brands(category)
 
+    async def generate_local_prompts(self, category: str, location: str) -> List[str]:
+        """Generate search prompts for local businesses.
+
+        Args:
+            category: The local business category (e.g., 'coffee shops', 'restaurants').
+            location: The location (e.g., 'San Francisco', 'Brooklyn, NY').
+
+        Returns:
+            List of suggested search queries for local businesses.
+        """
+        system_prompt = (
+            "You generate realistic consumer search queries for finding local businesses. "
+            "Include the location naturally in queries as consumers would."
+        )
+
+        user_prompt = (
+            f"For the local business category '{category}' in '{location}', "
+            f"generate exactly 5 natural search queries consumers would ask AI assistants.\n\n"
+            f"IMPORTANT RULES:\n"
+            f"- Include location naturally in queries\n"
+            f"- Mix of different intents: best overall, specific needs, ratings, proximity\n"
+            f"- At least ONE query should be a 'how to find' or recommendation question\n"
+            f"- Make queries feel natural, as if someone is asking an AI assistant\n\n"
+            f"Examples for 'coffee shops' in 'San Francisco':\n"
+            f"- 'best coffee shops in San Francisco'\n"
+            f"- 'where to find good coffee near me in San Francisco'\n"
+            f"- 'top rated cafes in San Francisco'\n"
+            f"- 'coffee shops with wifi in San Francisco'\n"
+            f"- 'best espresso in San Francisco'\n\n"
+            f"Return as JSON array of exactly 5 strings, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI local prompt generation failed: {e}")
+            return self._get_fallback_local_prompts(category, location)
+
+    async def generate_local_businesses(self, category: str, location: str) -> List[str]:
+        """Generate list of notable local businesses in a category/location.
+
+        Args:
+            category: The local business category (e.g., 'coffee shops', 'restaurants').
+            location: The location (e.g., 'San Francisco', 'Brooklyn, NY').
+
+        Returns:
+            List of business names in the area.
+        """
+        system_prompt = (
+            "You are a local business expert. List specific, real local businesses "
+            "that consumers might ask about. Include a mix of popular chains and local favorites. "
+            "Only include businesses that actually exist in the specified location."
+        )
+
+        user_prompt = (
+            f"List 8-10 notable {category} in or near {location}.\n"
+            f"Include both well-known chains and popular local spots.\n"
+            f"Focus on businesses that AI assistants would likely recommend.\n"
+            f"Return as JSON array of business names only, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI local businesses generation failed: {e}")
+            return self._get_fallback_local_businesses(category)
+
+    def _get_fallback_local_prompts(self, category: str, location: str) -> List[str]:
+        """Get fallback prompts for local businesses when API fails."""
+        return [
+            f"best {category} in {location}",
+            f"top rated {category} near {location}",
+            f"where to find good {category} in {location}",
+            f"recommended {category} in {location}",
+            f"{category} with best reviews in {location}",
+        ]
+
+    def _get_fallback_local_businesses(self, category: str) -> List[str]:
+        """Get fallback businesses for local searches when API fails."""
+        # Generic popular chains that exist in most cities
+        known_categories = {
+            "coffee shops": ["Starbucks", "Dunkin'", "Peet's Coffee", "Blue Bottle Coffee", "Philz Coffee"],
+            "restaurants": ["Olive Garden", "Cheesecake Factory", "Chili's", "Applebee's", "Buffalo Wild Wings"],
+            "gyms": ["Planet Fitness", "LA Fitness", "24 Hour Fitness", "Equinox", "Gold's Gym"],
+            "hotels": ["Marriott", "Hilton", "Hyatt", "Holiday Inn", "Best Western"],
+            "dentists": ["Aspen Dental", "Gentle Dental", "Pacific Dental"],
+            "hair salons": ["Supercuts", "Great Clips", "Sport Clips"],
+        }
+        # Normalize category
+        cat_lower = category.lower()
+        for key, businesses in known_categories.items():
+            if key in cat_lower or cat_lower in key:
+                return businesses
+        # Generic fallback
+        return [f"Local {category} 1", f"Local {category} 2", f"Local {category} 3"]
+
     def _get_fallback_category_prompts(self, category: str) -> List[str]:
         """Get fallback prompts for categories when API fails."""
         known_categories = {

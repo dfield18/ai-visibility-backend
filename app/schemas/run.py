@@ -13,9 +13,10 @@ class RunRequest(BaseModel):
     Attributes:
         session_id: Client session identifier.
         brand: Brand or category to analyze.
-        search_type: Whether this is a brand or category search.
+        search_type: Whether this is a brand, category, or local business search.
+        location: Location for local search type (city, neighborhood, etc.).
         prompts: List of prompts to test.
-        competitors: List of competitors/brands to track.
+        competitors: List of competitors/brands/businesses to track.
         providers: AI providers to use.
         temperatures: Temperature settings for variation.
         repeats: Number of times to repeat each combination.
@@ -23,7 +24,8 @@ class RunRequest(BaseModel):
 
     session_id: str = Field(..., min_length=1, max_length=255)
     brand: str = Field(..., min_length=1, max_length=255)
-    search_type: Literal["brand", "category"] = Field(default="brand")
+    search_type: Literal["brand", "category", "local"] = Field(default="brand")
+    location: Optional[str] = Field(None, max_length=255, description="Location for local search type")
     prompts: List[str] = Field(..., min_length=1, max_length=10)
     competitors: List[str] = Field(..., min_length=1, max_length=10)
     providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews", "grok", "llama"]] = Field(..., min_length=1)
@@ -175,7 +177,7 @@ class RunStatusResponse(BaseModel):
     run_id: UUID
     status: str
     brand: str
-    search_type: Literal["brand", "category"] = "brand"
+    search_type: Literal["brand", "category", "local"] = "brand"
     total_calls: int
     completed_calls: int
     failed_calls: int
