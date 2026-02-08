@@ -46,7 +46,7 @@ class GrokResponse:
         self.model = model
         self.sources = sources or []
         # Calculate cost based on model
-        pricing = self.MODEL_PRICING.get(model, self.MODEL_PRICING["grok-2"])
+        pricing = self.MODEL_PRICING.get(model, self.MODEL_PRICING["grok-3"])
         self.cost = (tokens_input * pricing["input"] / 1000) + (tokens_output * pricing["output"] / 1000)
 
 
