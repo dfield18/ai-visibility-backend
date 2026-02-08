@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     PERPLEXITY_API_KEY: str = ""
     GROK_API_KEY: str = ""
+    LLAMA_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
     RESEND_API_KEY: str = ""  # Resend API key for email notifications
     CLERK_DOMAIN: str = ""  # e.g., "your-app.clerk.accounts.dev"

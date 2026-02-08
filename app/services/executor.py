@@ -15,6 +15,7 @@ from app.models.run import Run
 from app.services.anthropic_service import AnthropicService
 from app.services.gemini_service import GeminiService
 from app.services.grok_service import GrokService
+from app.services.llama_service import LlamaService
 from app.services.openai_service import OpenAIService
 from app.services.perplexity_service import PerplexityService
 from app.services.serpapi_service import SerpAPIService
@@ -41,6 +42,7 @@ class RunExecutor:
         self.anthropic_service: Optional[AnthropicService] = None
         self.perplexity_service: Optional[PerplexityService] = None
         self.grok_service: Optional[GrokService] = None
+        self.llama_service: Optional[LlamaService] = None
         self.serpapi_service: Optional[SerpAPIService] = None
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
 
@@ -69,6 +71,11 @@ class RunExecutor:
             self.grok_service = GrokService()
         except ValueError as e:
             print(f"Grok service not available: {e}")
+
+        try:
+            self.llama_service = LlamaService()
+        except ValueError as e:
+            print(f"Llama service not available: {e}")
 
         try:
             self.serpapi_service = SerpAPIService()
@@ -318,6 +325,26 @@ class RunExecutor:
                     print(f"[Executor] Grok call successful, response length: {len(response.text)}")
                 except Exception as e:
                     print(f"[Executor] Grok call FAILED with error: {type(e).__name__}: {e}")
+                    raise
+
+            elif provider == "llama":
+                print(f"[Executor] Llama provider requested, service available: {self.llama_service is not None}")
+                if not self.llama_service:
+                    raise ValueError("Llama service not initialized - check LLAMA_API_KEY")
+                try:
+                    response = await self.llama_service.generate_content(
+                        prompt=prompt,
+                        temperature=temperature,
+                    )
+                    result.response_text = response.text
+                    result.model = response.model
+                    result.tokens = response.tokens_input + response.tokens_output
+                    result.cost = response.cost
+                    result.sources = response.sources
+                    cost = response.cost
+                    print(f"[Executor] Llama call successful, response length: {len(response.text)}")
+                except Exception as e:
+                    print(f"[Executor] Llama call FAILED with error: {type(e).__name__}: {e}")
                     raise
 
             else:
