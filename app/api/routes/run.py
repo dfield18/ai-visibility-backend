@@ -547,6 +547,19 @@ async def get_ai_summary(run_id: UUID, db: DatabaseDep) -> AISummaryResponse:
     )
 
 
+def _provider_display_name(provider: str) -> str:
+    """Map internal provider ID to user-facing model name."""
+    return {
+        "openai": "ChatGPT",
+        "anthropic": "Claude",
+        "gemini": "Gemini",
+        "perplexity": "Perplexity",
+        "grok": "Grok",
+        "llama": "Llama",
+        "ai_overviews": "AI Overviews",
+    }.get(provider, provider)
+
+
 def _format_results_for_ai(results: List[Result], brand: str) -> str:
     """Format results into a readable string for AI analysis.
 
@@ -585,7 +598,7 @@ def _format_results_for_ai(results: List[Result], brand: str) -> str:
     for provider, provider_results in by_provider.items():
         p_mentioned = sum(1 for r in provider_results if r.brand_mentioned)
         p_rate = (p_mentioned / len(provider_results) * 100) if provider_results else 0
-        lines.append(f"  {provider}: {p_mentioned}/{len(provider_results)} ({p_rate:.1f}%)")
+        lines.append(f"  {_provider_display_name(provider)}: {p_mentioned}/{len(provider_results)} ({p_rate:.1f}%)")
 
     # Competitor mention rates
     competitor_counts: Dict[str, int] = {}
@@ -619,7 +632,7 @@ def _format_results_for_ai(results: List[Result], brand: str) -> str:
     lines.append("")
 
     for provider, provider_results in by_provider.items():
-        lines.append(f"=== {provider.upper()} ({len(provider_results)} responses) ===")
+        lines.append(f"=== {_provider_display_name(provider)} ({len(provider_results)} responses) ===")
 
         for r in provider_results:
             lines.append(f"\nPrompt: {r.prompt}")
