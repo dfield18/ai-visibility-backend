@@ -1111,7 +1111,7 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
             summary = ""
         if isinstance(recommendations, Exception):
             print(f"[OpenAI] Recommendations generation failed: {recommendations}")
-            recommendations = []
+            recommendations = ""
 
         return {
             "summary": summary,

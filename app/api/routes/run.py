@@ -539,7 +539,7 @@ async def get_ai_summary(run_id: UUID, db: DatabaseDep) -> AISummaryResponse:
     return AISummaryResponse(
         run_id=run_id,
         summary=result["summary"],
-        recommendations=result.get("recommendations", []),
+        recommendations=result.get("recommendations", ""),
         generated_at=datetime.utcnow(),
     )
 
