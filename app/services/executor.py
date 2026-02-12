@@ -368,9 +368,11 @@ class RunExecutor:
                         response_text=result.response_text,
                         brand=brand,
                         competitors=competitors,
+                        sources=result.sources,
                     )
                     result.brand_sentiment = sentiment_result.get("brand_sentiment", "not_mentioned")
                     result.competitor_sentiments = sentiment_result.get("competitor_sentiments", {})
+                    result.source_brand_sentiments = sentiment_result.get("source_brand_sentiments")
                 except Exception as e:
                     print(f"[Executor] Sentiment classification failed: {e}")
                     # Fallback to simple detection
@@ -379,6 +381,7 @@ class RunExecutor:
                         c: "neutral_mention" if c in (result.competitors_mentioned or []) else "not_mentioned"
                         for c in competitors
                     }
+                    result.source_brand_sentiments = None
 
                 # Extract all brand mentions for position calculation
                 try:
@@ -398,6 +401,7 @@ class RunExecutor:
                     c: "neutral_mention" if c in (result.competitors_mentioned or []) else "not_mentioned"
                     for c in competitors
                 }
+                result.source_brand_sentiments = None
                 result.all_brands_mentioned = [brand] + (result.competitors_mentioned or []) if result.brand_mentioned else (result.competitors_mentioned or [])
 
             success = True

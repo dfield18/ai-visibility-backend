@@ -146,6 +146,7 @@ class ResultItem(BaseModel):
     brand_sentiment: Optional[str] = None
     competitor_sentiments: Optional[Dict[str, str]] = None
     all_brands_mentioned: Optional[List[str]] = None
+    source_brand_sentiments: Optional[Dict[str, Dict[str, str]]] = None
     created_at: datetime
 
     class Config:

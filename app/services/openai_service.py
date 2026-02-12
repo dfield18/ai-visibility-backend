@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import httpx
 from tenacity import (
@@ -692,34 +693,67 @@ class OpenAIService:
         }
         return known_competitors.get(brand.lower(), ["Competitor 1", "Competitor 2", "Competitor 3"])
 
+    @staticmethod
+    def _get_domain(url: str) -> str:
+        """Extract domain from URL, stripping www. prefix.
+
+        Args:
+            url: The URL to extract the domain from.
+
+        Returns:
+            The domain string (e.g., 'nytimes.com').
+        """
+        try:
+            hostname = urlparse(url).hostname or ""
+            if hostname.startswith("www."):
+                hostname = hostname[4:]
+            return hostname
+        except Exception:
+            return ""
+
     async def classify_brand_sentiment(
         self,
         response_text: str,
         brand: str,
         competitors: List[str],
+        sources: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """Classify how an AI response describes a brand and its competitors.
 
         Uses GPT-4o-mini to analyze the sentiment/framing of brand mentions.
+        When sources are provided, also classifies per-source sentiment.
 
         Args:
             response_text: The AI-generated response text to analyze.
             brand: The primary brand to classify.
             competitors: List of competitor brands to also classify.
+            sources: Optional list of source dicts with 'url' and 'title' keys.
 
         Returns:
-            Dict with 'brand_sentiment' and 'competitor_sentiments' keys.
-            brand_sentiment is one of: strong_endorsement, neutral_mention, conditional, negative_comparison, not_mentioned
-            competitor_sentiments is a dict mapping competitor name to sentiment.
+            Dict with 'brand_sentiment', 'competitor_sentiments', and 'source_brand_sentiments' keys.
         """
         if not response_text or not response_text.strip():
             return {
                 "brand_sentiment": "not_mentioned",
                 "competitor_sentiments": {c: "not_mentioned" for c in competitors},
+                "source_brand_sentiments": None,
             }
 
         # Build the list of all brands to analyze
         all_brands = [brand] + competitors
+
+        # Deduplicate sources by domain
+        unique_domains: List[str] = []
+        if sources:
+            seen_domains = set()
+            for source in sources:
+                url = source.get("url", "")
+                if not url:
+                    continue
+                domain = self._get_domain(url)
+                if domain and domain not in seen_domains:
+                    seen_domains.add(domain)
+                    unique_domains.append(domain)
 
         system_prompt = """You are a brand sentiment classifier. Analyze how AI responses describe brands.
 
@@ -744,7 +778,30 @@ IMPORTANT: Recognize brand name variations as the same brand:
 Return ONLY a valid JSON object with no markdown formatting."""
 
         brands_list = ", ".join(f'"{b}"' for b in all_brands)
-        user_prompt = f"""Analyze this AI response and classify how it describes each brand.
+
+        if unique_domains:
+            domains_list = ", ".join(f'"{d}"' for d in unique_domains)
+            user_prompt = f"""Analyze this AI response and classify how it describes each brand, both overall and per cited source domain.
+
+RESPONSE TEXT:
+{response_text[:4000]}
+
+BRANDS TO CLASSIFY: {brands_list}
+
+SOURCE DOMAINS CITED: {domains_list}
+
+Return a JSON object with two keys:
+1. "overall" - maps each brand name to its overall sentiment in the response
+2. "by_source" - maps each source domain to a dict of brand sentiments as that source would describe them
+
+Example format:
+{{"overall": {{"Nike": "strong_endorsement", "Adidas": "neutral_mention"}}, "by_source": {{"nytimes.com": {{"Nike": "strong_endorsement", "Adidas": "neutral_mention"}}, "reddit.com": {{"Nike": "conditional", "Adidas": "not_mentioned"}}}}}}
+
+For "by_source", classify how each source domain likely describes each brand based on the context of the response. If a source domain is unlikely to discuss a brand, use "not_mentioned".
+Classify ALL brands listed under "overall". For "by_source", include ALL listed source domains.
+Use the EXACT brand names from the list above (not variations found in text)."""
+        else:
+            user_prompt = f"""Analyze this AI response and classify how it describes each brand.
 
 RESPONSE TEXT:
 {response_text[:4000]}
@@ -771,7 +828,24 @@ Classify ALL brands listed. If a brand appears under a different name variation 
             result_text = re.sub(r"```\s*", "", result_text)
             result_text = result_text.strip()
 
-            sentiments = json.loads(result_text)
+            parsed = json.loads(result_text)
+
+            valid_sentiments = {
+                "strong_endorsement",
+                "positive_endorsement",
+                "neutral_mention",
+                "conditional",
+                "negative_comparison",
+                "not_mentioned",
+            }
+
+            # Determine if we got the extended format or flat format
+            if unique_domains and isinstance(parsed.get("overall"), dict):
+                sentiments = parsed["overall"]
+                by_source_raw = parsed.get("by_source", {})
+            else:
+                sentiments = parsed
+                by_source_raw = {}
 
             # Extract brand sentiment (case-insensitive lookup)
             brand_sentiment = "not_mentioned"
@@ -791,15 +865,6 @@ Classify ALL brands listed. If a brand appears under a different name variation 
                 competitor_sentiments[comp] = comp_sentiment
 
             # Validate sentiment values
-            valid_sentiments = {
-                "strong_endorsement",
-                "positive_endorsement",
-                "neutral_mention",
-                "conditional",
-                "negative_comparison",
-                "not_mentioned",
-            }
-
             if brand_sentiment not in valid_sentiments:
                 brand_sentiment = "neutral_mention" if brand.lower() in response_text.lower() else "not_mentioned"
 
@@ -807,9 +872,25 @@ Classify ALL brands listed. If a brand appears under a different name variation 
                 if sent not in valid_sentiments:
                     competitor_sentiments[comp] = "neutral_mention" if comp.lower() in response_text.lower() else "not_mentioned"
 
+            # Build source_brand_sentiments
+            source_brand_sentiments: Optional[Dict[str, Dict[str, str]]] = None
+            if by_source_raw and isinstance(by_source_raw, dict):
+                source_brand_sentiments = {}
+                for domain, brand_map in by_source_raw.items():
+                    if not isinstance(brand_map, dict):
+                        continue
+                    validated_map: Dict[str, str] = {}
+                    for b_name, b_sent in brand_map.items():
+                        if b_sent in valid_sentiments:
+                            validated_map[b_name] = b_sent
+                        else:
+                            validated_map[b_name] = "not_mentioned"
+                    source_brand_sentiments[domain] = validated_map
+
             return {
                 "brand_sentiment": brand_sentiment,
                 "competitor_sentiments": competitor_sentiments,
+                "source_brand_sentiments": source_brand_sentiments,
             }
 
         except Exception as e:
@@ -823,6 +904,7 @@ Classify ALL brands listed. If a brand appears under a different name variation 
             return {
                 "brand_sentiment": brand_sentiment,
                 "competitor_sentiments": competitor_sentiments,
+                "source_brand_sentiments": None,
             }
 
     async def _deduplicate_brands(self, brands: List[str]) -> List[str]:

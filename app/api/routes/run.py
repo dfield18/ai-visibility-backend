@@ -210,6 +210,7 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
             brand_sentiment=r.brand_sentiment,
             competitor_sentiments=r.competitor_sentiments,
             all_brands_mentioned=r.all_brands_mentioned,
+            source_brand_sentiments=r.source_brand_sentiments,
             created_at=r.created_at,
         )
         for r in sorted(all_results, key=lambda x: x.created_at)
