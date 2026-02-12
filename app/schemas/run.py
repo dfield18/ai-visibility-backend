@@ -178,7 +178,7 @@ class RunStatusResponse(BaseModel):
     run_id: UUID
     status: str
     brand: str
-    search_type: Literal["brand", "category", "local"] = "brand"
+    search_type: Literal["brand", "category", "local", "issue", "public_figure"] = "brand"
     total_calls: int
     completed_calls: int
     failed_calls: int
