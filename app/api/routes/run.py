@@ -61,7 +61,7 @@ async def start_run(
         HTTPException: If validation fails or run cannot be created.
     """
     # Free tier enforcement: check subscription status
-    FREE_PROVIDERS = {"openai", "gemini"}
+    FREE_PROVIDERS = {"llama", "grok", "gemini"}
     is_paid = False
 
     if user:
