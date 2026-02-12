@@ -421,14 +421,25 @@ class RunExecutor:
         async with session_factory() as session:
             session.add(result)
 
-            # Update run progress incrementally
-            run = await session.get(Run, run_id)
-            if run:
-                if success:
-                    run.completed_calls = (run.completed_calls or 0) + 1
-                else:
-                    run.failed_calls = (run.failed_calls or 0) + 1
-                run.actual_cost = (run.actual_cost or Decimal("0")) + Decimal(str(cost))
+            # Update run progress atomically to avoid race conditions
+            if success:
+                await session.execute(
+                    update(Run)
+                    .where(Run.id == run_id)
+                    .values(
+                        completed_calls=Run.completed_calls + 1,
+                        actual_cost=Run.actual_cost + Decimal(str(cost)),
+                    )
+                )
+            else:
+                await session.execute(
+                    update(Run)
+                    .where(Run.id == run_id)
+                    .values(
+                        failed_calls=Run.failed_calls + 1,
+                        actual_cost=Run.actual_cost + Decimal(str(cost)),
+                    )
+                )
 
             await session.commit()
 

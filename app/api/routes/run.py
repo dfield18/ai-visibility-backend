@@ -98,6 +98,9 @@ async def start_run(
         "providers": request.providers,
         "temperatures": request.temperatures,
         "repeats": request.repeats,
+        "openai_model": request.openai_model,
+        "anthropic_model": request.anthropic_model,
+        "country": request.country,
     }
 
     # Create run record

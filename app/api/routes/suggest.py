@@ -15,13 +15,13 @@ from app.services.openai_service import OpenAIService
 router = APIRouter()
 
 # Current year for prompt suggestions
-CURRENT_YEAR = 2026
+CURRENT_YEAR = datetime.now().year
 
 
 def update_years_in_prompts(prompts: List[str]) -> List[str]:
     """Update old years in prompts to the current year.
 
-    Replaces years from 2020-2025 with 2026 in AI-generated prompts.
+    Replaces any 2020-series year older than the current year.
     This ensures suggestions are for current/relevant time periods.
 
     Args:
@@ -30,10 +30,14 @@ def update_years_in_prompts(prompts: List[str]) -> List[str]:
     Returns:
         List of prompts with updated years.
     """
+    current = CURRENT_YEAR
     updated = []
     for prompt in prompts:
-        # Replace years 2020-2025 with current year
-        updated_prompt = re.sub(r'\b(202[0-5])\b', str(CURRENT_YEAR), prompt)
+        # Replace any 202x year that is older than current year
+        def replace_old_year(match: re.Match) -> str:
+            year = int(match.group(0))
+            return str(current) if year < current else match.group(0)
+        updated_prompt = re.sub(r'\b(202\d)\b', replace_old_year, prompt)
         updated.append(updated_prompt)
     return updated
 
