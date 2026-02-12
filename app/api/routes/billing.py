@@ -7,7 +7,7 @@ from typing import Optional
 
 from app.core.config import settings
 from app.core.database import DatabaseSession
-from app.core.auth import get_current_user, ClerkUser
+from app.core.auth import OptionalUser
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ class BillingStatusResponse(BaseModel):
 @router.get("/billing/status", response_model=BillingStatusResponse)
 async def get_billing_status(
     db: DatabaseSession,
-    user: ClerkUser = None,
+    user: OptionalUser = None,
 ) -> BillingStatusResponse:
     """Get billing status for the current user.
 
@@ -116,7 +116,7 @@ async def stripe_webhook(request: Request, db: DatabaseSession):
             )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:
+    except stripe.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event.type
