@@ -171,7 +171,67 @@ async def generate_suggestions(
         )
 
     try:
-        if request.search_type == "local":
+        if request.search_type == "issue":
+            # For issue searches, generate prompts about the issue
+            # and list related issues for comparison
+            prompts = await service.generate_issue_prompts(
+                issue=request.brand,
+                industry=request.industry,
+            )
+            prompts = update_years_in_prompts(prompts)
+            related_issues = await service.generate_related_issues(
+                issue=request.brand,
+                industry=request.industry,
+            )
+
+            if cache_available:
+                try:
+                    await save_cached_suggestion(
+                        db=db,
+                        brand=request.brand,
+                        search_type=request.search_type,
+                        prompts=prompts,
+                        competitors=related_issues,
+                        industry=request.industry,
+                    )
+                except Exception as e:
+                    print(f"[Suggest] Failed to cache result: {e}")
+
+            return SuggestResponse(
+                brand=request.brand,
+                prompts=prompts,
+                competitors=related_issues,
+            )
+        elif request.search_type == "public_figure":
+            # For public figure searches, generate prompts about the figure
+            # and list similar/comparable figures
+            prompts = await service.generate_public_figure_prompts(
+                figure=request.brand,
+            )
+            prompts = update_years_in_prompts(prompts)
+            similar_figures = await service.generate_similar_figures(
+                figure=request.brand,
+            )
+
+            if cache_available:
+                try:
+                    await save_cached_suggestion(
+                        db=db,
+                        brand=request.brand,
+                        search_type=request.search_type,
+                        prompts=prompts,
+                        competitors=similar_figures,
+                        industry=request.industry,
+                    )
+                except Exception as e:
+                    print(f"[Suggest] Failed to cache result: {e}")
+
+            return SuggestResponse(
+                brand=request.brand,
+                prompts=prompts,
+                competitors=similar_figures,
+            )
+        elif request.search_type == "local":
             # For local searches, generate prompts with location context
             # and list local businesses in that category/location
             prompts = await service.generate_local_prompts(

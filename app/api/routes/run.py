@@ -28,6 +28,7 @@ from app.schemas.run import (
 from app.services.openai_service import OpenAIService
 from app.services.executor import RunExecutor
 from app.services.result_processor import estimate_duration_seconds, estimate_run_cost
+from app.core.auth import OptionalUser
 
 router = APIRouter()
 
@@ -40,6 +41,7 @@ async def start_run(
     request: RunRequest,
     background_tasks: BackgroundTasks,
     db: DatabaseDep,
+    user: OptionalUser = None,
 ) -> RunResponse:
     """Start a brand visibility analysis run.
 
@@ -50,6 +52,7 @@ async def start_run(
         request: RunRequest with brand, prompts, providers, etc.
         background_tasks: FastAPI background tasks.
         db: Database session.
+        user: Optional authenticated user for billing enforcement.
 
     Returns:
         RunResponse with run_id and estimated cost/duration.
@@ -57,6 +60,45 @@ async def start_run(
     Raises:
         HTTPException: If validation fails or run cannot be created.
     """
+    # Free tier enforcement: check subscription status
+    FREE_PROVIDERS = {"openai", "gemini"}
+    is_paid = False
+
+    if user:
+        try:
+            import stripe
+            from app.core.config import settings
+            stripe.api_key = getattr(settings, 'STRIPE_API_KEY', '') or ''
+            if stripe.api_key:
+                customers = stripe.Customer.search(
+                    query=f'metadata["clerk_user_id"]:"{user.user_id}"',
+                )
+                if customers.data:
+                    subs = stripe.Subscription.list(
+                        customer=customers.data[0].id,
+                        status='active',
+                        limit=1,
+                    )
+                    is_paid = bool(subs.data)
+        except Exception:
+            pass  # Default to free tier if Stripe unavailable
+
+    if not is_paid:
+        # Restrict to free providers
+        non_free = [p for p in request.providers if p not in FREE_PROVIDERS]
+        if non_free:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Free tier only supports {', '.join(FREE_PROVIDERS)} providers. Upgrade to Pro for access to {', '.join(non_free)}.",
+            )
+
+    # Validate prompt limit
+    if len(request.prompts) > 20:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum 20 prompts per run. You submitted {len(request.prompts)}.",
+        )
+
     # Validate total calls
     total_calls = request.total_calls
     if total_calls > 300:

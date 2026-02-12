@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     LLAMA_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
     RESEND_API_KEY: str = ""  # Resend API key for email notifications
+    STRIPE_API_KEY: str = ""  # Stripe secret key
+    STRIPE_WEBHOOK_SECRET: str = ""  # Stripe webhook signing secret
+    STRIPE_PRICE_ID: str = ""  # Stripe price ID for Pro plan
     CLERK_DOMAIN: str = ""  # e.g., "your-app.clerk.accounts.dev"
     CLERK_SECRET_KEY: str = ""  # Clerk secret key for backend API calls
     ENVIRONMENT: str = "development"

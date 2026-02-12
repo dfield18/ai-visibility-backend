@@ -19,7 +19,7 @@ class SuggestRequest(BaseModel):
     industry: Optional[str] = Field(
         None, max_length=255, description="Optional industry context"
     )
-    search_type: Literal["brand", "category", "local"] = Field(
+    search_type: Literal["brand", "category", "local", "issue", "public_figure"] = Field(
         default="brand", description="Whether searching for a brand, category, or local business"
     )
     location: Optional[str] = Field(

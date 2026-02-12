@@ -418,6 +418,169 @@ class OpenAIService:
             print(f"OpenAI category brands generation failed: {e}")
             return self._get_fallback_category_brands(category)
 
+    async def generate_issue_prompts(self, issue: str, industry: str = None) -> List[str]:
+        """Generate search prompts for a public issue or policy topic.
+
+        Args:
+            issue: The issue or policy topic (e.g., 'Prop 47', 'student loan forgiveness').
+            industry: Optional industry context.
+
+        Returns:
+            List of suggested search queries about the issue.
+        """
+        system_prompt = (
+            "You generate realistic consumer search queries about public issues, "
+            "policy topics, and societal debates. Think about what an average person "
+            "would ask an AI assistant about this topic."
+        )
+
+        industry_context = f" in the context of {industry}" if industry else ""
+        user_prompt = (
+            f"For the issue/topic '{issue}'{industry_context}, "
+            f"generate exactly 5 natural search queries consumers would ask AI assistants.\n\n"
+            f"IMPORTANT RULES:\n"
+            f"- Mix of different intents: understanding, pros/cons, impact, latest developments, opinions\n"
+            f"- Include at least ONE query about the current status or latest developments\n"
+            f"- Include at least ONE query asking for different perspectives\n"
+            f"- Make queries feel natural, as if someone is asking an AI assistant\n\n"
+            f"Return as JSON array of exactly 5 strings, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI issue prompt generation failed: {e}")
+            return [
+                f"what is {issue}",
+                f"pros and cons of {issue}",
+                f"{issue} latest developments",
+                f"arguments for and against {issue}",
+                f"how does {issue} affect people",
+            ]
+
+    async def generate_related_issues(self, issue: str, industry: str = None) -> List[str]:
+        """Generate list of related issues for comparison.
+
+        Args:
+            issue: The issue or policy topic.
+            industry: Optional industry context.
+
+        Returns:
+            List of related issue/topic names.
+        """
+        system_prompt = (
+            "You identify related public issues, policy topics, and societal debates "
+            "that are comparable or connected to a given issue."
+        )
+
+        industry_context = f" in the {industry} industry" if industry else ""
+        user_prompt = (
+            f"List 5-8 issues or policy topics related to '{issue}'{industry_context}. "
+            f"Include a mix of directly related issues, competing proposals, "
+            f"and broader topics in the same policy area. "
+            f"Return as JSON array of strings only, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI related issues generation failed: {e}")
+            return [f"Related to {issue} 1", f"Related to {issue} 2", f"Related to {issue} 3"]
+
+    async def generate_public_figure_prompts(self, figure: str) -> List[str]:
+        """Generate search prompts for a public figure.
+
+        Args:
+            figure: The public figure name (e.g., 'Elon Musk', 'Taylor Swift').
+
+        Returns:
+            List of suggested search queries about the figure.
+        """
+        system_prompt = (
+            "You generate realistic consumer search queries about public figures "
+            "(politicians, CEOs, celebrities, athletes, etc.). Think about what "
+            "people would ask an AI assistant about this person."
+        )
+
+        user_prompt = (
+            f"For the public figure '{figure}', "
+            f"generate exactly 5 natural search queries consumers would ask AI assistants.\n\n"
+            f"IMPORTANT RULES:\n"
+            f"- Mix of different intents: background, achievements, controversies, comparisons, opinions\n"
+            f"- Include at least ONE query comparing them to peers\n"
+            f"- Include at least ONE query about their impact or influence\n"
+            f"- Make queries feel natural, as if someone is asking an AI assistant\n\n"
+            f"Return as JSON array of exactly 5 strings, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI public figure prompt generation failed: {e}")
+            return [
+                f"who is {figure}",
+                f"{figure} achievements and impact",
+                f"what do people think about {figure}",
+                f"{figure} compared to similar figures",
+                f"latest news about {figure}",
+            ]
+
+    async def generate_similar_figures(self, figure: str) -> List[str]:
+        """Generate list of similar or comparable public figures.
+
+        Uses GPT to detect the domain (politics, business, entertainment)
+        and generates appropriate comparisons.
+
+        Args:
+            figure: The public figure name.
+
+        Returns:
+            List of similar figure names.
+        """
+        system_prompt = (
+            "You identify public figures who are comparable, similar, or rivals "
+            "to a given person. For politicians, include opponents and ideological peers. "
+            "For business leaders, include competitors and industry peers. "
+            "For entertainers, include peers in the same field."
+        )
+
+        user_prompt = (
+            f"List 5-8 public figures similar to, comparable to, or rivals of '{figure}'. "
+            f"First determine their domain (politics, business, entertainment, sports, etc.) "
+            f"then list appropriate comparisons:\n"
+            f"- For politicians: opponents, ideological peers, same-region politicians\n"
+            f"- For business leaders: competitor company CEOs, industry peers\n"
+            f"- For entertainers: peers in the same genre/field\n"
+            f"- For athletes: rivals, teammates, same-sport peers\n"
+            f"Return as JSON array of full names only, no explanation."
+        )
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.7,
+            )
+            return self._parse_json_array(response.text)
+        except Exception as e:
+            print(f"OpenAI similar figures generation failed: {e}")
+            return [f"Similar to {figure} 1", f"Similar to {figure} 2", f"Similar to {figure} 3"]
+
     async def generate_local_prompts(self, category: str, location: str) -> List[str]:
         """Generate search prompts for local businesses.
 
