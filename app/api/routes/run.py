@@ -547,6 +547,9 @@ async def get_ai_summary(run_id: UUID, db: DatabaseDep) -> AISummaryResponse:
 def _format_results_for_ai(results: List[Result], brand: str) -> str:
     """Format results into a readable string for AI analysis.
 
+    Includes pre-computed aggregate statistics so the LLM can reference
+    exact numbers without having to count individual results.
+
     Args:
         results: List of successful Result objects.
         brand: The brand being analyzed.
@@ -559,12 +562,58 @@ def _format_results_for_ai(results: List[Result], brand: str) -> str:
     lines.append(f"Total Responses: {len(results)}")
     lines.append("")
 
-    # Group by provider for better organization
+    # === Pre-computed aggregate statistics ===
+    lines.append("=== AGGREGATE STATISTICS (use these exact numbers) ===")
+
+    # Overall brand mention rate
+    mentioned_count = sum(1 for r in results if r.brand_mentioned)
+    mention_rate = (mentioned_count / len(results) * 100) if results else 0
+    lines.append(f"Overall Brand Visibility: {brand} mentioned in {mentioned_count}/{len(results)} responses ({mention_rate:.1f}%)")
+
+    # Per-provider stats
     by_provider: Dict[str, List[Result]] = {}
     for r in results:
         if r.provider not in by_provider:
             by_provider[r.provider] = []
         by_provider[r.provider].append(r)
+
+    lines.append("")
+    lines.append("Brand Visibility by Provider:")
+    for provider, provider_results in by_provider.items():
+        p_mentioned = sum(1 for r in provider_results if r.brand_mentioned)
+        p_rate = (p_mentioned / len(provider_results) * 100) if provider_results else 0
+        lines.append(f"  {provider}: {p_mentioned}/{len(provider_results)} ({p_rate:.1f}%)")
+
+    # Competitor mention rates
+    competitor_counts: Dict[str, int] = {}
+    for r in results:
+        if r.competitors_mentioned:
+            for comp in r.competitors_mentioned:
+                competitor_counts[comp] = competitor_counts.get(comp, 0) + 1
+
+    if competitor_counts:
+        lines.append("")
+        lines.append("Competitor Mention Rates:")
+        for comp, count in sorted(competitor_counts.items(), key=lambda x: -x[1]):
+            c_rate = (count / len(results) * 100) if results else 0
+            lines.append(f"  {comp}: {count}/{len(results)} ({c_rate:.1f}%)")
+
+    # Sentiment distribution
+    sentiment_counts: Dict[str, int] = {}
+    for r in results:
+        if r.brand_sentiment:
+            sentiment_counts[r.brand_sentiment] = sentiment_counts.get(r.brand_sentiment, 0) + 1
+
+    if sentiment_counts:
+        lines.append("")
+        lines.append(f"Brand Sentiment Distribution for {brand}:")
+        for sent, count in sorted(sentiment_counts.items(), key=lambda x: -x[1]):
+            s_rate = (count / len(results) * 100) if results else 0
+            lines.append(f"  {sent}: {count} ({s_rate:.1f}%)")
+
+    lines.append("")
+    lines.append("=== INDIVIDUAL RESPONSES ===")
+    lines.append("")
 
     for provider, provider_results in by_provider.items():
         lines.append(f"=== {provider.upper()} ({len(provider_results)} responses) ===")
