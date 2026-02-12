@@ -33,22 +33,29 @@ async def get_billing_status(
     Returns subscription status and usage information.
     Falls back to free tier if Stripe is not configured.
     """
+    print(f"[Billing] Status check - user: {user}")
     if not user:
+        print("[Billing] No user found in request, returning free tier")
         return BillingStatusResponse()
 
+    print(f"[Billing] Checking status for user_id: {user.user_id}")
+
     if not stripe.api_key:
+        print("[Billing] Stripe API key not configured")
         return BillingStatusResponse()
 
     try:
         # Search for Stripe customer by clerk user ID
-        customers = stripe.Customer.search(
-            query=f'metadata["clerk_user_id"]:"{user.user_id}"',
-        )
+        query = f'metadata["clerk_user_id"]:"{user.user_id}"'
+        print(f"[Billing] Searching customers with query: {query}")
+        customers = stripe.Customer.search(query=query)
+        print(f"[Billing] Found {len(customers.data)} customers")
 
         if not customers.data:
             return BillingStatusResponse()
 
         customer = customers.data[0]
+        print(f"[Billing] Found customer: {customer.id}")
 
         # Check active subscriptions
         subscriptions = stripe.Subscription.list(
@@ -56,9 +63,11 @@ async def get_billing_status(
             status='active',
             limit=1,
         )
+        print(f"[Billing] Active subscriptions: {len(subscriptions.data)}")
 
         if subscriptions.data:
             sub = subscriptions.data[0]
+            print(f"[Billing] User has active subscription: {sub.id}")
             return BillingStatusResponse(
                 hasSubscription=True,
                 reportsUsed=0,  # TODO: Track from database
