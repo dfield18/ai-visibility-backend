@@ -67,13 +67,14 @@ async def get_billing_status(
 
         if subscriptions.data:
             sub = subscriptions.data[0]
-            print(f"[Billing] User has active subscription: {sub.id}")
+            period_end = getattr(sub, 'current_period_end', None)
+            print(f"[Billing] User has active subscription: {sub.id}, period_end={period_end}")
             return BillingStatusResponse(
                 hasSubscription=True,
                 reportsUsed=0,  # TODO: Track from database
                 reportsLimit=999,
                 subscriptionStatus=sub.status,
-                currentPeriodEnd=str(sub.current_period_end),
+                currentPeriodEnd=str(period_end) if period_end else None,
             )
 
         # Check for past_due subscriptions
@@ -85,12 +86,13 @@ async def get_billing_status(
 
         if past_due_subs.data:
             sub = past_due_subs.data[0]
+            period_end = getattr(sub, 'current_period_end', None)
             return BillingStatusResponse(
                 hasSubscription=True,
                 reportsUsed=0,
                 reportsLimit=999,
                 subscriptionStatus='past_due',
-                currentPeriodEnd=str(sub.current_period_end),
+                currentPeriodEnd=str(period_end) if period_end else None,
             )
 
         return BillingStatusResponse()
