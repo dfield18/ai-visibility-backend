@@ -1433,14 +1433,14 @@ CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON.""
                 "IMPORTANT: Return ONLY plain text prose. Do NOT return JSON. Do NOT use bullet points."
             )
 
-            user_prompt = f"""Based on the following AI visibility data for the "{brand}" industry/category, write an industry analysis brief with 3-5 key insights that a marketing leader would find valuable.
+            user_prompt = f"""Based on the following AI visibility data for the "{brand}" industry/category, write an industry analysis brief with 5-7 key insights that a marketing leader would find valuable.
 
 DATA:
 {results_data}
 
 OUTPUT FORMAT (STRICT - PROSE STYLE):
 
-Write 3-5 insight paragraphs. Each paragraph MUST follow this structure:
+Write 5-7 insight paragraphs. Each paragraph MUST follow this structure:
 1. **Bold title as lead-in** (e.g., "**AI Is Picking Favorites in {brand}.**")
 2. A clear data insight in plain language (cite specific numbers)
 3. 2-4 sentences explaining what this means for the industry and brands competing in it
@@ -1450,12 +1450,16 @@ EXAMPLE PARAGRAPHS:
 
 **There's Still Time to Win the AI Recommendation.** No single brand dominates more than 40% of AI responses in the {brand} space, which means the "default recommendation" hasn't been locked in yet. The brands that invest now in building authority — through reviews, expert coverage, and strong brand presence — have a real window to become the go-to AI recommendation before these patterns solidify.
 
-CONTENT FOCUS — write as industry analysis for marketers:
+**AI Is Rewriting the Rules of Brand Discovery.** Traditionally, consumers found {brand} products through Google search results, ads, and word of mouth. Now, AI assistants are giving direct recommendations — and the brands that show up are determined by completely different factors like review coverage, expert mentions, and structured brand information. This shift means the marketing playbook that worked for traditional search may not translate to AI visibility.
+
+CONTENT FOCUS — write as industry analysis for marketers (MUST COVER ALL THESE AREAS):
 - Which brands are winning in AI recommendations and why that matters
 - How different AI platforms recommend different brands (and what that means for consumers)
 - Whether the industry is dominated by a few brands or wide open for competition
 - What patterns reveal about how AI is changing how consumers discover products
 - Where the biggest opportunities exist for brands that want to show up in AI responses
+- How AI is reshaping the overall industry landscape — what's changing about how this category is presented to consumers
+- What the data reveals about consumer intent — what questions are people asking AI about this industry, and what does that tell us about buyer behavior
 
 TONE — write for a marketing leader, not a developer:
 - "AI recommends Nike in 70% of responses" NOT "Nike has a 70% mention rate"
