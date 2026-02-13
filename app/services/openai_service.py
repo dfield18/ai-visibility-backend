@@ -1424,15 +1424,16 @@ CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON.""
 
         if entity_type == "category":
             system_prompt = (
-                "You are an AI industry strategist writing competitive intelligence briefs. "
-                "Your role is to provide specific, actionable insights about how brands can "
-                "improve their positioning within a product category across AI platforms.\n\n"
-                "You write for brand, SEO, growth, or product leaders who want to understand "
-                "competitive dynamics and opportunities within their industry.\n\n"
+                "You are an industry analyst writing plain-English intelligence briefs for marketing leaders. "
+                "Your audience is non-technical — they are brand managers, CMOs, and marketing directors who "
+                "want to understand how AI platforms like ChatGPT, Gemini, and Perplexity are shaping consumer "
+                "discovery in their industry.\n\n"
+                "Write in a conversational but authoritative tone. Avoid jargon, technical SEO language, or "
+                "developer-focused advice. Focus on what the data MEANS for the industry, not how to fix it.\n\n"
                 "IMPORTANT: Return ONLY plain text prose. Do NOT return JSON. Do NOT use bullet points."
             )
 
-            user_prompt = f"""Based on the following AI visibility data for the "{brand}" industry/category, write a competitive intelligence brief with 3-5 key strategic insights.
+            user_prompt = f"""Based on the following AI visibility data for the "{brand}" industry/category, write an industry analysis brief with 3-5 key insights that a marketing leader would find valuable.
 
 DATA:
 {results_data}
@@ -1440,35 +1441,42 @@ DATA:
 OUTPUT FORMAT (STRICT - PROSE STYLE):
 
 Write 3-5 insight paragraphs. Each paragraph MUST follow this structure:
-1. **Bold title as lead-in** (e.g., "**The AI Recommendation Gap Is Real.**")
-2. Data insight woven into the opening sentence (cite specific numbers)
-3. 2-4 specific observations or opportunities explained naturally in the prose
+1. **Bold title as lead-in** (e.g., "**AI Is Picking Favorites in {brand}.**")
+2. A clear data insight in plain language (cite specific numbers)
+3. 2-4 sentences explaining what this means for the industry and brands competing in it
 
-EXAMPLE PARAGRAPH:
-**Provider Bias Shapes the Competitive Landscape.** ChatGPT and Gemini recommend substantially different market leaders in the {brand} space — ChatGPT favors [Brand A] with a 70% mention rate while Gemini leads with [Brand B] at 55%. Brands competing in this category should audit their visibility per platform rather than assuming uniform AI coverage. A brand that dominates on one platform but is invisible on another has a clear gap to close.
+EXAMPLE PARAGRAPHS:
+**AI Platforms Don't Agree on Who's Best.** When consumers ask ChatGPT and Gemini for {brand} recommendations, they get very different answers — ChatGPT consistently recommends [Brand A] (appearing in 70% of responses) while Gemini favors [Brand B] at 55%. This means a brand's visibility depends heavily on which AI tool their customers happen to use. For marketers, this is a wake-up call: being the top recommendation on one platform doesn't guarantee you're even mentioned on another.
 
-**The Top Spot Is Up for Grabs.** No single brand achieves #1 positioning in more than 40% of AI responses, suggesting the {brand} market is still fluid in AI recommendations. Brands that invest in structured data, authoritative reviews, and AI-optimized content now have a window to capture the default recommendation position before it solidifies.
+**There's Still Time to Win the AI Recommendation.** No single brand dominates more than 40% of AI responses in the {brand} space, which means the "default recommendation" hasn't been locked in yet. The brands that invest now in building authority — through reviews, expert coverage, and strong brand presence — have a real window to become the go-to AI recommendation before these patterns solidify.
 
-CONTENT FOCUS — frame as industry analysis:
-- Which brands are winning and why (cite visibility %, rank positions)
-- Where provider biases create opportunities for challengers
-- How concentrated or fragmented the market is in AI recommendations
-- What types of content and sources drive top placement in this category
-- Where the biggest gaps and opportunities exist for any brand in this space
+CONTENT FOCUS — write as industry analysis for marketers:
+- Which brands are winning in AI recommendations and why that matters
+- How different AI platforms recommend different brands (and what that means for consumers)
+- Whether the industry is dominated by a few brands or wide open for competition
+- What patterns reveal about how AI is changing how consumers discover products
+- Where the biggest opportunities exist for brands that want to show up in AI responses
 
-BAD framing (too brand-specific - avoid these):
+TONE — write for a marketing leader, not a developer:
+- "AI recommends Nike in 70% of responses" NOT "Nike has a 70% mention rate"
+- "Consumers asking ChatGPT about sneakers will mostly hear about Nike" NOT "Brand visibility score is 0.70"
+- "The market is wide open" NOT "Fragmentation index is high"
+- "Most AI platforms agree on the top 3" NOT "Co-occurrence analysis shows clustering"
+
+BAD framing (avoid these):
 - "Your brand should do X" — this is an industry report, not a brand report
-- "Improve your SEO" — too vague and brand-centric
-- "Build more backlinks" — generic advice
+- "Improve your SEO" or "Build more backlinks" — too technical
+- "Optimize structured data" — too developer-focused
+- Any advice that reads like a to-do list for an SEO team
 
 STYLE RULES:
 - Use **bold** for insight titles only
-- Write in clear, decisive prose — no hedging language
+- Write in clear, conversational prose — like briefing a CMO
 - Each paragraph should be 3-5 sentences
 - Separate paragraphs with blank lines
 - Do NOT use bullet points or numbered lists
 - Do NOT use JSON formatting
-- Frame as industry intelligence, NOT as advice for one specific brand
+- Frame as industry intelligence that helps marketers understand the landscape
 
 Return ONLY the prose paragraphs, no introduction or conclusion."""
         else:
