@@ -1289,19 +1289,75 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
     ) -> str:
         """Generate executive summary as plain text (no JSON)."""
 
-        system_prompt = (
-            "You are an AI visibility analyst. Your role is to analyze how brands appear "
-            "in AI-generated responses across major AI providers.\n\n"
-            "You produce executive-ready summaries that are clear, accurate, and actionable. "
-            "You prioritize correct interpretation of quantitative data, comparative clarity, "
-            "and business-relevant insights over cautious or academic language.\n\n"
-            "You write for brand, SEO, growth, or product leaders, not researchers. "
-            "Your summaries should read like a concise analyst brief suitable for a product "
-            "dashboard or internal intelligence report.\n\n"
-            "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations."
-        )
+        if entity_type == "category":
+            system_prompt = (
+                "You are an AI industry landscape analyst. Your role is to analyze how AI platforms "
+                "recommend and discuss brands within a specific product category or industry.\n\n"
+                "You produce executive-ready industry landscape summaries that are clear, accurate, "
+                "and actionable. You prioritize correct interpretation of quantitative data, "
+                "competitive dynamics, and market-relevant insights.\n\n"
+                "You write for brand, SEO, growth, or product leaders who want to understand how "
+                "AI platforms represent their industry — not just their own brand.\n\n"
+                "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations."
+            )
 
-        user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary.
+            user_prompt = f"""Analyze the following AI visibility data for the "{brand}" industry/category and produce an industry landscape summary.
+
+DATA:
+{results_data}
+
+OUTPUT FORMAT (STRICT - PLAIN TEXT ONLY):
+
+Begin with one bolded headline sentence (using **bold**) that states the dominant finding about the {brand} landscape in AI responses.
+– The headline MUST reflect the overall competitive dynamics (e.g., who dominates, how fragmented the market is, which providers favor which brands)
+
+Follow with 4–5 short paragraphs, separated by line breaks.
+Each paragraph MUST begin with a bolded lead-in phrase (using **bold**).
+
+CONTENT TO COVER (ALL REQUIRED):
+
+1. **Market leader** - Which brand dominates AI recommendations in this category, and how dominant they are
+
+2. **Competitive landscape** - How the top brands stack up against each other in mention rates and ranking positions
+
+3. **Provider differences** - Do different AI platforms favor different brands? Note any significant provider-specific biases
+
+4. **Industry coverage** - How well do AI platforms cover this category? Are recommendations diverse or narrow?
+
+5. **Sentiment patterns** - How are the top brands characterized? Any notable framing differences between competitors?
+
+6. **Source patterns** - What types of sources do AI platforms cite for this category? Any notable gaps?
+
+7. **Key insight** - One standout finding about how AI is shaping recommendations in this industry
+
+INTERPRETATION GUIDANCE:
+- Frame everything as an industry analysis, NOT as advice for a single brand
+- Compare brands against each other, not against an ideal
+- Highlight which brands are winning and losing in AI visibility
+- Note if the market is concentrated (one dominant player) or fragmented
+
+STYLE RULES:
+- Do NOT use bullet points or numbered lists
+- Use line breaks between paragraphs
+- Avoid hedging language ("may indicate", "appears to be")
+- Be specific, comparative, and decisive
+- Do NOT restate the prompt or describe methodology
+
+CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON."""
+        else:
+            system_prompt = (
+                "You are an AI visibility analyst. Your role is to analyze how brands appear "
+                "in AI-generated responses across major AI providers.\n\n"
+                "You produce executive-ready summaries that are clear, accurate, and actionable. "
+                "You prioritize correct interpretation of quantitative data, comparative clarity, "
+                "and business-relevant insights over cautious or academic language.\n\n"
+                "You write for brand, SEO, growth, or product leaders, not researchers. "
+                "Your summaries should read like a concise analyst brief suitable for a product "
+                "dashboard or internal intelligence report.\n\n"
+                "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations."
+            )
+
+            user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary.
 
 DATA:
 {results_data}
@@ -1366,16 +1422,66 @@ CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON.""
     ) -> str:
         """Generate recommendations as a prose-style strategy brief."""
 
-        system_prompt = (
-            "You are an AI visibility strategist writing executive strategy briefs. "
-            "Your role is to provide specific, actionable recommendations in a clear, "
-            "narrative prose style.\n\n"
-            "You write for brand, SEO, growth, or product leaders who need actionable guidance. "
-            "Every recommendation must be tied to specific data insights and include concrete tactics.\n\n"
-            "IMPORTANT: Return ONLY plain text prose. Do NOT return JSON. Do NOT use bullet points."
-        )
+        if entity_type == "category":
+            system_prompt = (
+                "You are an AI industry strategist writing competitive intelligence briefs. "
+                "Your role is to provide specific, actionable insights about how brands can "
+                "improve their positioning within a product category across AI platforms.\n\n"
+                "You write for brand, SEO, growth, or product leaders who want to understand "
+                "competitive dynamics and opportunities within their industry.\n\n"
+                "IMPORTANT: Return ONLY plain text prose. Do NOT return JSON. Do NOT use bullet points."
+            )
 
-        user_prompt = f"""Based on the following AI visibility data for the {entity_type} "{brand}", write a strategy brief with 3-5 specific recommendations.
+            user_prompt = f"""Based on the following AI visibility data for the "{brand}" industry/category, write a competitive intelligence brief with 3-5 key strategic insights.
+
+DATA:
+{results_data}
+
+OUTPUT FORMAT (STRICT - PROSE STYLE):
+
+Write 3-5 insight paragraphs. Each paragraph MUST follow this structure:
+1. **Bold title as lead-in** (e.g., "**The AI Recommendation Gap Is Real.**")
+2. Data insight woven into the opening sentence (cite specific numbers)
+3. 2-4 specific observations or opportunities explained naturally in the prose
+
+EXAMPLE PARAGRAPH:
+**Provider Bias Shapes the Competitive Landscape.** ChatGPT and Gemini recommend substantially different market leaders in the {brand} space — ChatGPT favors [Brand A] with a 70% mention rate while Gemini leads with [Brand B] at 55%. Brands competing in this category should audit their visibility per platform rather than assuming uniform AI coverage. A brand that dominates on one platform but is invisible on another has a clear gap to close.
+
+**The Top Spot Is Up for Grabs.** No single brand achieves #1 positioning in more than 40% of AI responses, suggesting the {brand} market is still fluid in AI recommendations. Brands that invest in structured data, authoritative reviews, and AI-optimized content now have a window to capture the default recommendation position before it solidifies.
+
+CONTENT FOCUS — frame as industry analysis:
+- Which brands are winning and why (cite visibility %, rank positions)
+- Where provider biases create opportunities for challengers
+- How concentrated or fragmented the market is in AI recommendations
+- What types of content and sources drive top placement in this category
+- Where the biggest gaps and opportunities exist for any brand in this space
+
+BAD framing (too brand-specific - avoid these):
+- "Your brand should do X" — this is an industry report, not a brand report
+- "Improve your SEO" — too vague and brand-centric
+- "Build more backlinks" — generic advice
+
+STYLE RULES:
+- Use **bold** for insight titles only
+- Write in clear, decisive prose — no hedging language
+- Each paragraph should be 3-5 sentences
+- Separate paragraphs with blank lines
+- Do NOT use bullet points or numbered lists
+- Do NOT use JSON formatting
+- Frame as industry intelligence, NOT as advice for one specific brand
+
+Return ONLY the prose paragraphs, no introduction or conclusion."""
+        else:
+            system_prompt = (
+                "You are an AI visibility strategist writing executive strategy briefs. "
+                "Your role is to provide specific, actionable recommendations in a clear, "
+                "narrative prose style.\n\n"
+                "You write for brand, SEO, growth, or product leaders who need actionable guidance. "
+                "Every recommendation must be tied to specific data insights and include concrete tactics.\n\n"
+                "IMPORTANT: Return ONLY plain text prose. Do NOT return JSON. Do NOT use bullet points."
+            )
+
+            user_prompt = f"""Based on the following AI visibility data for the {entity_type} "{brand}", write a strategy brief with 3-5 specific recommendations.
 
 DATA:
 {results_data}
