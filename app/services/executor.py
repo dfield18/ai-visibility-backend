@@ -124,6 +124,7 @@ class RunExecutor:
         openai_model = config.get("openai_model", "gpt-4o-mini")
         anthropic_model = config.get("anthropic_model", "claude-haiku-4-5-20251001")
         country = config.get("country", "us")
+        search_type = config.get("search_type", "brand")
 
         # Build task list
         tasks = []
@@ -154,6 +155,7 @@ class RunExecutor:
                     openai_model=openai_model,
                     anthropic_model=anthropic_model,
                     country=country,
+                    search_type=search_type,
                 )
 
         # Run all tasks concurrently
@@ -195,6 +197,7 @@ class RunExecutor:
         openai_model: str = "gpt-4o-mini",
         anthropic_model: str = "claude-haiku-4-5-20251001",
         country: str = "us",
+        search_type: str = "brand",
     ) -> Tuple[bool, float]:
         """Execute a single API call task.
 
@@ -207,6 +210,7 @@ class RunExecutor:
             openai_model: OpenAI model to use.
             anthropic_model: Anthropic model to use.
             country: Country code for filtering search results.
+            search_type: The search type (brand, category, etc.).
 
         Returns:
             Tuple of (success: bool, cost: float)
@@ -373,6 +377,30 @@ class RunExecutor:
                     result.brand_sentiment = sentiment_result.get("brand_sentiment", "not_mentioned")
                     result.competitor_sentiments = sentiment_result.get("competitor_sentiments", {})
                     result.source_brand_sentiments = sentiment_result.get("source_brand_sentiments")
+
+                    # For category (industry) reports, override brand_sentiment with
+                    # the average sentiment across mentioned brands instead of the
+                    # sentiment toward the category name itself.
+                    if search_type == "category" and result.competitor_sentiments:
+                        _SENT_SCORES = {
+                            "strong_endorsement": 5,
+                            "positive_endorsement": 4,
+                            "neutral_mention": 3,
+                            "conditional": 2,
+                            "negative_comparison": 1,
+                        }
+                        _SCORE_TO_SENT = {v: k for k, v in _SENT_SCORES.items()}
+                        scored = [
+                            _SENT_SCORES[s]
+                            for s in result.competitor_sentiments.values()
+                            if s in _SENT_SCORES
+                        ]
+                        if scored:
+                            avg = sum(scored) / len(scored)
+                            # Round to nearest sentiment level
+                            nearest = min(_SCORE_TO_SENT.keys(), key=lambda x: abs(x - avg))
+                            result.brand_sentiment = _SCORE_TO_SENT[nearest]
+
                 except Exception as e:
                     print(f"[Executor] Sentiment classification failed: {e}")
                     # Fallback to simple detection
