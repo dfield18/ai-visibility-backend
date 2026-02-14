@@ -123,6 +123,8 @@ class RunExecutor:
         repeats = config.get("repeats", 1)
         openai_model = config.get("openai_model", "gpt-4o-mini")
         anthropic_model = config.get("anthropic_model", "claude-haiku-4-5-20251001")
+        grok_model = config.get("grok_model", "grok-3")
+        llama_model = config.get("llama_model", "llama-3.3-70b-versatile")
         country = config.get("country", "us")
         search_type = config.get("search_type", "brand")
 
@@ -154,6 +156,8 @@ class RunExecutor:
                     task=task,
                     openai_model=openai_model,
                     anthropic_model=anthropic_model,
+                    grok_model=grok_model,
+                    llama_model=llama_model,
                     country=country,
                     search_type=search_type,
                 )
@@ -196,6 +200,8 @@ class RunExecutor:
         task: Dict[str, Any],
         openai_model: str = "gpt-4o-mini",
         anthropic_model: str = "claude-haiku-4-5-20251001",
+        grok_model: str = "grok-3",
+        llama_model: str = "llama-3.3-70b-versatile",
         country: str = "us",
         search_type: str = "brand",
     ) -> Tuple[bool, float]:
@@ -322,6 +328,7 @@ class RunExecutor:
                     response = await self.grok_service.generate_content(
                         prompt=prompt,
                         temperature=temperature,
+                        model=grok_model,
                     )
                     result.response_text = response.text
                     result.model = response.model
@@ -343,6 +350,7 @@ class RunExecutor:
                     response = await self.llama_service.generate_content(
                         prompt=prompt,
                         temperature=temperature,
+                        model=llama_model,
                     )
                     result.response_text = response.text
                     result.model = response.model
