@@ -27,10 +27,10 @@ class ScheduledReportCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     brand: str = Field(..., min_length=1, max_length=255)
-    search_type: Literal["brand", "category"] = Field(default="brand")
+    search_type: Literal["brand", "category", "local", "issue", "public_figure"] = Field(default="brand")
     prompts: List[str] = Field(..., min_length=1, max_length=10)
-    competitors: List[str] = Field(..., min_length=1, max_length=10)
-    providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]] = Field(..., min_length=1)
+    competitors: List[str] = Field(default_factory=list, max_length=10)
+    providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews", "grok", "llama"]] = Field(..., min_length=1)
     temperatures: List[float] = Field(..., min_length=1)
     repeats: int = Field(default=1, ge=1, le=10)
     frequency: Literal["daily", "weekly"] = Field(default="weekly")
@@ -76,10 +76,10 @@ class ScheduledReportUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     brand: Optional[str] = Field(None, min_length=1, max_length=255)
-    search_type: Optional[Literal["brand", "category"]] = None
+    search_type: Optional[Literal["brand", "category", "local", "issue", "public_figure"]] = None
     prompts: Optional[List[str]] = Field(None, min_length=1, max_length=10)
-    competitors: Optional[List[str]] = Field(None, min_length=1, max_length=10)
-    providers: Optional[List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews"]]] = Field(None, min_length=1)
+    competitors: Optional[List[str]] = Field(None, max_length=10)
+    providers: Optional[List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews", "grok", "llama"]]] = Field(None, min_length=1)
     temperatures: Optional[List[float]] = Field(None, min_length=1)
     repeats: Optional[int] = Field(None, ge=1, le=10)
     frequency: Optional[Literal["daily", "weekly"]] = None
@@ -122,7 +122,7 @@ class ScheduledReportResponse(BaseModel):
     user_id: UUID
     name: str
     brand: str
-    search_type: Literal["brand", "category"]
+    search_type: Literal["brand", "category", "local", "issue", "public_figure"]
     prompts: List[str]
     competitors: List[str]
     providers: List[str]
