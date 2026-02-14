@@ -41,9 +41,13 @@ class GeminiResponse:
         self.model = model
         self.sources = sources or []
         self.grounding_metadata = grounding_metadata
-        # Gemini 2.5 Flash pricing: $0.15/1M input, $0.60/1M output (text)
-        # Grounding adds ~$35/1K requests
-        self.cost = (tokens_input * 0.00015 / 1000) + (tokens_output * 0.0006 / 1000)
+        # Gemini pricing per 1M tokens
+        MODEL_PRICING = {
+            "gemini-2.5-flash": {"input": 0.15, "output": 0.60},
+            "gemini-2.5-pro": {"input": 1.25, "output": 10.00},
+        }
+        pricing = MODEL_PRICING.get(model, MODEL_PRICING["gemini-2.5-flash"])
+        self.cost = (tokens_input * pricing["input"] / 1_000_000) + (tokens_output * pricing["output"] / 1_000_000)
 
 
 class GeminiService:
@@ -101,6 +105,7 @@ class GeminiService:
         self,
         prompt: str,
         temperature: float = 0.7,
+        model: str = "gemini-2.5-flash",
     ) -> GeminiResponse:
         """Generate content using Gemini.
 
@@ -114,7 +119,7 @@ class GeminiService:
         Raises:
             httpx.HTTPStatusError: If the API returns an error status.
         """
-        url = f"{self.BASE_URL}/models/{self.MODEL}:generateContent"
+        url = f"{self.BASE_URL}/models/{model}:generateContent"
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -217,7 +222,7 @@ class GeminiService:
             text=text,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
-            model=self.MODEL,
+            model=model,
             sources=sources,
             grounding_metadata=structured_grounding,
         )

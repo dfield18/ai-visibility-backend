@@ -36,6 +36,7 @@ class RunRequest(BaseModel):
     perplexity_model: Literal["sonar", "sonar-pro"] = Field(default="sonar")
     grok_model: Literal["grok-3", "grok-3-mini"] = Field(default="grok-3")
     llama_model: Literal["llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"] = Field(default="llama-3.3-70b-versatile")
+    gemini_model: Literal["gemini-2.5-flash", "gemini-2.5-pro"] = Field(default="gemini-2.5-flash")
     country: str = Field(default="us", max_length=5)
 
     @field_validator("prompts")

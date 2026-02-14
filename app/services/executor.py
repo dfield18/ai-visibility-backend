@@ -126,6 +126,7 @@ class RunExecutor:
         perplexity_model = config.get("perplexity_model", "sonar")
         grok_model = config.get("grok_model", "grok-3")
         llama_model = config.get("llama_model", "llama-3.3-70b-versatile")
+        gemini_model = config.get("gemini_model", "gemini-2.5-flash")
         country = config.get("country", "us")
         search_type = config.get("search_type", "brand")
 
@@ -160,6 +161,7 @@ class RunExecutor:
                     perplexity_model=perplexity_model,
                     grok_model=grok_model,
                     llama_model=llama_model,
+                    gemini_model=gemini_model,
                     country=country,
                     search_type=search_type,
                 )
@@ -205,6 +207,7 @@ class RunExecutor:
         perplexity_model: str = "sonar",
         grok_model: str = "grok-3",
         llama_model: str = "llama-3.3-70b-versatile",
+        gemini_model: str = "gemini-2.5-flash",
         country: str = "us",
         search_type: str = "brand",
     ) -> Tuple[bool, float]:
@@ -275,6 +278,7 @@ class RunExecutor:
                 response = await self.gemini_service.generate_content(
                     prompt=prompt,
                     temperature=temperature,
+                    model=gemini_model,
                 )
                 result.response_text = response.text
                 result.model = response.model
