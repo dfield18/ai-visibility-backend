@@ -123,6 +123,7 @@ class RunExecutor:
         repeats = config.get("repeats", 1)
         openai_model = config.get("openai_model", "gpt-4o-mini")
         anthropic_model = config.get("anthropic_model", "claude-haiku-4-5-20251001")
+        perplexity_model = config.get("perplexity_model", "sonar")
         grok_model = config.get("grok_model", "grok-3")
         llama_model = config.get("llama_model", "llama-3.3-70b-versatile")
         country = config.get("country", "us")
@@ -156,6 +157,7 @@ class RunExecutor:
                     task=task,
                     openai_model=openai_model,
                     anthropic_model=anthropic_model,
+                    perplexity_model=perplexity_model,
                     grok_model=grok_model,
                     llama_model=llama_model,
                     country=country,
@@ -200,6 +202,7 @@ class RunExecutor:
         task: Dict[str, Any],
         openai_model: str = "gpt-4o-mini",
         anthropic_model: str = "claude-haiku-4-5-20251001",
+        perplexity_model: str = "sonar",
         grok_model: str = "grok-3",
         llama_model: str = "llama-3.3-70b-versatile",
         country: str = "us",
@@ -299,6 +302,7 @@ class RunExecutor:
                     prompt=prompt,
                     temperature=temperature,
                     country=country,
+                    model=perplexity_model,
                 )
                 result.response_text = response.text
                 result.model = response.model

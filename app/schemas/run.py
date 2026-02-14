@@ -33,6 +33,7 @@ class RunRequest(BaseModel):
     repeats: int = Field(default=1, ge=1, le=10)
     openai_model: Literal["gpt-4o-mini", "gpt-4o"] = Field(default="gpt-4o-mini")
     anthropic_model: Literal["claude-haiku-4-5-20251001", "claude-sonnet-4-20250514"] = Field(default="claude-haiku-4-5-20251001")
+    perplexity_model: Literal["sonar", "sonar-pro"] = Field(default="sonar")
     grok_model: Literal["grok-3", "grok-3-mini"] = Field(default="grok-3")
     llama_model: Literal["llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct"] = Field(default="llama-3.3-70b-versatile")
     country: str = Field(default="us", max_length=5)

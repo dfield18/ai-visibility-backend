@@ -38,8 +38,13 @@ class PerplexityResponse:
         self.tokens_output = tokens_output
         self.model = model
         self.sources = sources or []
-        # Perplexity Sonar pricing: ~$0.001/1K input, $0.001/1K output
-        self.cost = (tokens_input * 0.001 / 1000) + (tokens_output * 0.001 / 1000)
+        # Perplexity Sonar pricing per 1M tokens
+        MODEL_PRICING = {
+            "sonar": {"input": 1.0, "output": 1.0},
+            "sonar-pro": {"input": 3.0, "output": 15.0},
+        }
+        pricing = MODEL_PRICING.get(model, MODEL_PRICING["sonar"])
+        self.cost = (tokens_input * pricing["input"] / 1_000_000) + (tokens_output * pricing["output"] / 1_000_000)
 
 
 class PerplexityService:
@@ -76,6 +81,7 @@ class PerplexityService:
         prompt: str,
         temperature: float = 0.7,
         country: str = "us",
+        model: str = "sonar",
     ) -> PerplexityResponse:
         """Generate content using Perplexity Sonar.
 
@@ -91,7 +97,7 @@ class PerplexityService:
             httpx.HTTPStatusError: If the API returns an error status.
         """
         payload = {
-            "model": self.MODEL,
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
             "web_search_options": {
@@ -151,6 +157,6 @@ class PerplexityService:
             text=text,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
-            model=self.MODEL,
+            model=model,
             sources=sources,
         )
