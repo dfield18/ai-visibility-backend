@@ -964,20 +964,21 @@ class OpenAIService:
                     unique_domains.append(domain)
 
         if search_type == "issue":
-            system_prompt = """You are a policy/issue framing classifier. Analyze how AI responses frame public issues, policies, and topics.
+            system_prompt = """You are an issue sentiment classifier. Analyze whether AI responses portray issues and topics as good or bad.
 
-For each issue or topic mentioned (or not mentioned) in the text, classify the framing as one of:
-- strong_endorsement: The issue/policy is clearly praised, defended, or framed as highly effective or beneficial
-- positive_endorsement: The issue/policy is discussed with a generally favorable or supportive tone
-- neutral_mention: The issue/policy is discussed factually and objectively, presenting information without taking a clear stance. Purely informational or historical descriptions should be classified here
-- conditional: The issue/policy is discussed with mixed framing — acknowledging both benefits and drawbacks, or using "it depends" language
-- negative_comparison: The issue/policy is clearly criticized, framed as harmful, ineffective, or problematic
+For each issue or topic mentioned (or not mentioned) in the text, classify the AI's view as one of:
+- strong_endorsement: The AI clearly presents the issue as good, beneficial, effective, or worth supporting (e.g., "remote work has been transformative for productivity and work-life balance")
+- positive_endorsement: The AI leans toward presenting the issue favorably, highlighting more benefits than drawbacks
+- neutral_mention: The AI discusses the issue factually without expressing whether it is good or bad. Purely informational, historical, or descriptive statements belong here
+- conditional: The AI presents the issue as having both positives and negatives — a mixed or "it depends" view (e.g., "remote work has benefits for flexibility but drawbacks for collaboration")
+- negative_comparison: The AI clearly presents the issue as bad, harmful, ineffective, or problematic (e.g., "remote work has led to isolation and declining team cohesion")
 
 IMPORTANT classification guidance:
-- Factual, historical, or descriptive statements (e.g., "Policy X was enacted in 2014" or "Policy X continues to influence the landscape") are neutral_mention, NOT negative_comparison
-- Only classify as negative_comparison when there is explicit criticism or clear negative framing
-- Words like "influence", "impact", "affect", "change" are neutral unless accompanied by clearly negative context
-- Discussing consequences or effects factually is neutral_mention; arguing those effects are bad is negative_comparison
+- The question is simple: does the AI think this issue/topic is GOOD or BAD?
+- strong_endorsement = clearly good, positive_endorsement = mostly good, neutral_mention = no opinion expressed, conditional = mixed/both sides, negative_comparison = clearly bad
+- Factual or historical statements without a value judgment (e.g., "Policy X was enacted in 2014") are neutral_mention
+- Only classify as negative_comparison when the AI explicitly frames the issue as bad or harmful
+- Presenting both pros and cons equally is conditional, not negative_comparison
 - not_mentioned: The issue/topic does not appear in the response
 
 Return ONLY a valid JSON object with no markdown formatting."""
