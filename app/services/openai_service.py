@@ -466,13 +466,18 @@ class OpenAIService:
         industry_context = f" in the context of {industry}" if industry else ""
         user_prompt = (
             f"For the issue/topic '{issue}'{industry_context}, "
-            f"generate exactly 5 natural search queries consumers would ask AI assistants.\n\n"
+            f"generate exactly 8 natural search queries consumers would ask AI assistants.\n\n"
             f"IMPORTANT RULES:\n"
+            f"- The FIRST 5 queries should be specifically about '{issue}'\n"
+            f"- The LAST 3 queries should be broader questions about the general topic area "
+            f"WITHOUT mentioning '{issue}' by name (e.g., for 'Prop 47' a broader query might be "
+            f"'what are the main criminal justice ballot initiatives' or 'how do states handle "
+            f"shoplifting reform')\n"
             f"- Mix of different intents: understanding, pros/cons, impact, latest developments, opinions\n"
             f"- Include at least ONE query about the current status or latest developments\n"
             f"- Include at least ONE query asking for different perspectives\n"
             f"- Make queries feel natural, as if someone is asking an AI assistant\n\n"
-            f"Return as JSON array of exactly 5 strings, no explanation."
+            f"Return as JSON array of exactly 8 strings, no explanation."
         )
 
         try:
@@ -490,6 +495,9 @@ class OpenAIService:
                 f"{issue} latest developments",
                 f"arguments for and against {issue}",
                 f"how does {issue} affect people",
+                f"major policy debates right now",
+                f"most controversial ballot initiatives",
+                f"how are states handling policy reform",
             ]
 
     async def generate_related_issues(self, issue: str, industry: str = None) -> List[str]:
