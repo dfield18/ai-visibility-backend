@@ -345,12 +345,13 @@ class OpenAIService:
             print(f"OpenAI competitor generation failed: {e}")
             return self._get_fallback_competitors(brand)
 
-    async def generate_category_prompts(self, category: str, industry: Optional[str] = None) -> List[str]:
+    async def generate_category_prompts(self, category: str, industry: Optional[str] = None, location: Optional[str] = None) -> List[str]:
         """Generate search prompts for a product category.
 
         Args:
             category: The product category (e.g., 'cars', 'shoes', 'laptops').
             industry: Optional industry context.
+            location: Optional location for local industry searches.
 
         Returns:
             List of suggested search queries for the category.
@@ -361,18 +362,33 @@ class OpenAIService:
         )
 
         industry_context = f" in the {industry} industry" if industry else ""
-        user_prompt = (
-            f"For the product category '{category}'{industry_context}, generate exactly 5 consumer search queries.\n\n"
-            f"IMPORTANT RULES:\n"
-            f"- Queries should be generic category searches consumers naturally ask\n"
-            f"- Focus on discovery/recommendation queries\n"
-            f"- Include different intents: best overall, specific use cases, comparisons, buying guides\n"
-            f"- At least ONE query must be a 'how to' or informational question (e.g., 'how to choose a laptop', "
-            f"'what to look for when buying a car') - these trigger Google AI Overviews\n\n"
-            f"Examples for 'laptops': 'best laptops', 'how to choose a laptop for students', "
-            f"'best budget laptops', 'laptops for video editing', 'what specs matter in a laptop'\n\n"
-            f"Return as JSON array of exactly 5 strings, no explanation."
-        )
+        location_context = f" in {location}" if location else ""
+        if location:
+            user_prompt = (
+                f"For the product category '{category}'{industry_context} in {location}, generate exactly 5 consumer search queries.\n\n"
+                f"IMPORTANT RULES:\n"
+                f"- Queries should be location-specific searches consumers naturally ask about {category} in {location}\n"
+                f"- Focus on discovery/recommendation queries for the local area\n"
+                f"- Include different intents: best overall in area, specific neighborhoods, comparisons, reviews\n"
+                f"- At least ONE query must be a 'how to' or informational question\n\n"
+                f"Examples for 'coffee shops' in 'Austin, TX': 'best coffee shops in Austin', "
+                f"'where to get specialty coffee in Austin', 'top rated cafes near downtown Austin', "
+                f"'best coffee roasters in Austin TX', 'hidden gem coffee spots in Austin'\n\n"
+                f"Return as JSON array of exactly 5 strings, no explanation."
+            )
+        else:
+            user_prompt = (
+                f"For the product category '{category}'{industry_context}, generate exactly 5 consumer search queries.\n\n"
+                f"IMPORTANT RULES:\n"
+                f"- Queries should be generic category searches consumers naturally ask\n"
+                f"- Focus on discovery/recommendation queries\n"
+                f"- Include different intents: best overall, specific use cases, comparisons, buying guides\n"
+                f"- At least ONE query must be a 'how to' or informational question (e.g., 'how to choose a laptop', "
+                f"'what to look for when buying a car') - these trigger Google AI Overviews\n\n"
+                f"Examples for 'laptops': 'best laptops', 'how to choose a laptop for students', "
+                f"'best budget laptops', 'laptops for video editing', 'what specs matter in a laptop'\n\n"
+                f"Return as JSON array of exactly 5 strings, no explanation."
+            )
 
         try:
             response = await self.chat_completion(
@@ -385,27 +401,40 @@ class OpenAIService:
             print(f"OpenAI category prompt generation failed: {e}")
             return self._get_fallback_category_prompts(category)
 
-    async def generate_category_brands(self, category: str, industry: Optional[str] = None) -> List[str]:
+    async def generate_category_brands(self, category: str, industry: Optional[str] = None, location: Optional[str] = None) -> List[str]:
         """Generate list of brands in a product category.
 
         Args:
             category: The product category (e.g., 'cars', 'shoes', 'laptops').
             industry: Optional industry context.
+            location: Optional location for local industry searches.
 
         Returns:
             List of brand names in the category.
         """
-        system_prompt = (
-            "You are a market research assistant. "
-            "Identify leading brands in product categories."
-        )
-
-        industry_context = f" in the {industry} industry" if industry else ""
-        user_prompt = (
-            f"List 8-10 leading brands in the '{category}' category{industry_context}. "
-            f"Include a mix of premium, mid-range, and value brands. "
-            f"Return as JSON array of strings only, no explanation."
-        )
+        if location:
+            system_prompt = (
+                "You are a local business research assistant. "
+                "Identify popular and notable local businesses in specific areas."
+            )
+            industry_context = f" in the {industry} industry" if industry else ""
+            user_prompt = (
+                f"List 8-10 notable {category} businesses in {location}{industry_context}. "
+                f"Include a mix of well-known local favorites, popular chains, and hidden gems. "
+                f"Use the actual business names as they are commonly known. "
+                f"Return as JSON array of strings only, no explanation."
+            )
+        else:
+            system_prompt = (
+                "You are a market research assistant. "
+                "Identify leading brands in product categories."
+            )
+            industry_context = f" in the {industry} industry" if industry else ""
+            user_prompt = (
+                f"List 8-10 leading brands in the '{category}' category{industry_context}. "
+                f"Include a mix of premium, mid-range, and value brands. "
+                f"Return as JSON array of strings only, no explanation."
+            )
 
         try:
             response = await self.chat_completion(

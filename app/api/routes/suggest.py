@@ -259,16 +259,18 @@ async def generate_suggestions(
             )
         elif request.search_type == "category":
             # For category searches, generate prompts for the category
-            # and list brands in that category
+            # and list brands in that category (with optional location for local industry)
             prompts = await service.generate_category_prompts(
                 category=request.brand,
                 industry=request.industry,
+                location=request.location,
             )
             # Update old years to current year in suggestions
             prompts = update_years_in_prompts(prompts)
             brands = await service.generate_category_brands(
                 category=request.brand,
                 industry=request.industry,
+                location=request.location,
             )
 
             # Cache the result (if cache is available)
