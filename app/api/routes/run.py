@@ -147,12 +147,19 @@ async def start_run(
     )
     estimated_duration = estimate_duration_seconds(total_calls)
 
+    # For issue reports, title-case the issue name and related issues for consistency
+    brand_name = request.brand
+    competitors_list = request.competitors
+    if request.search_type == "issue":
+        brand_name = request.brand.title()
+        competitors_list = [c.title() for c in request.competitors]
+
     # Create run config
     config = {
-        "brand": request.brand,
+        "brand": brand_name,
         "search_type": request.search_type,
         "prompts": request.prompts,
-        "competitors": request.competitors,
+        "competitors": competitors_list,
         "providers": request.providers,
         "temperatures": request.temperatures,
         "repeats": request.repeats,
@@ -165,7 +172,7 @@ async def start_run(
     run = Run(
         session_id=session.id,
         status=Run.STATUS_QUEUED,
-        brand=request.brand,
+        brand=brand_name,
         config=config,
         total_calls=total_calls,
         estimated_cost=estimated_cost,

@@ -154,10 +154,14 @@ async def generate_suggestions(
         print(f"[Suggest] Cache hit for '{request.brand}' ({request.search_type})")
         # Update years in cached prompts (in case they were cached last year)
         prompts = update_years_in_prompts(cached.prompts)
+        competitors = cached.competitors
+        # Title-case issue names for consistency
+        if request.search_type == "issue":
+            competitors = [c.title() for c in competitors]
         return SuggestResponse(
             brand=request.brand,
             prompts=prompts,
-            competitors=cached.competitors,
+            competitors=competitors,
         )
 
     print(f"[Suggest] Cache miss for '{request.brand}' ({request.search_type}), generating...")
@@ -200,7 +204,7 @@ async def generate_suggestions(
             return SuggestResponse(
                 brand=request.brand,
                 prompts=prompts,
-                competitors=related_issues,
+                competitors=[issue.title() for issue in related_issues],
             )
         elif request.search_type == "public_figure":
             # For public figure searches, generate prompts about the figure

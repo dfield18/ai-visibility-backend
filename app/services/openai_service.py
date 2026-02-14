@@ -509,18 +509,20 @@ class OpenAIService:
         system_prompt = (
             "You generate realistic consumer search queries about public figures "
             "(politicians, CEOs, celebrities, athletes, etc.). Think about what "
-            "people would ask an AI assistant about this person."
+            "people would ask an AI assistant about this person and their industry/field."
         )
 
         user_prompt = (
             f"For the public figure '{figure}', "
-            f"generate exactly 5 natural search queries consumers would ask AI assistants.\n\n"
+            f"generate exactly 8 natural search queries consumers would ask AI assistants.\n\n"
             f"IMPORTANT RULES:\n"
-            f"- Mix of different intents: background, achievements, controversies, comparisons, opinions\n"
-            f"- Include at least ONE query comparing them to peers\n"
-            f"- Include at least ONE query about their impact or influence\n"
-            f"- Make queries feel natural, as if someone is asking an AI assistant\n\n"
-            f"Return as JSON array of exactly 5 strings, no explanation."
+            f"- Include 5 queries specifically about '{figure}' (background, achievements, controversies, comparisons, opinions)\n"
+            f"- Include 3 broader queries about their industry/field/domain that do NOT mention '{figure}' by name.\n"
+            f"  These should be general category queries where '{figure}' would naturally come up.\n"
+            f"  Examples for Taylor Swift: 'best pop singers of all time', 'most influential musicians right now', 'top touring artists'\n"
+            f"  Examples for Elon Musk: 'most innovative tech CEOs', 'who are the top entrepreneurs in AI', 'best electric car companies'\n"
+            f"- Make all queries feel natural, as if someone is asking an AI assistant\n\n"
+            f"Return as JSON array of exactly 8 strings, no explanation."
         )
 
         try:
@@ -538,6 +540,9 @@ class OpenAIService:
                 f"what do people think about {figure}",
                 f"{figure} compared to similar figures",
                 f"latest news about {figure}",
+                f"most influential people in their field",
+                f"top leaders in their industry",
+                f"best known figures in their area",
             ]
 
     async def generate_similar_figures(self, figure: str) -> List[str]:
@@ -880,6 +885,7 @@ class OpenAIService:
         brand: str,
         competitors: List[str],
         sources: Optional[List[Dict[str, str]]] = None,
+        search_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Classify how an AI response describes a brand and its competitors.
 
@@ -891,6 +897,7 @@ class OpenAIService:
             brand: The primary brand to classify.
             competitors: List of competitor brands to also classify.
             sources: Optional list of source dicts with 'url' and 'title' keys.
+            search_type: The type of search (brand, category, local, issue, public_figure).
 
         Returns:
             Dict with 'brand_sentiment', 'competitor_sentiments', and 'source_brand_sentiments' keys.
@@ -918,7 +925,40 @@ class OpenAIService:
                     seen_domains.add(domain)
                     unique_domains.append(domain)
 
-        system_prompt = """You are a brand sentiment classifier. Analyze how AI responses describe brands.
+        if search_type == "issue":
+            system_prompt = """You are a policy/issue framing classifier. Analyze how AI responses frame public issues, policies, and topics.
+
+For each issue or topic mentioned (or not mentioned) in the text, classify the framing as one of:
+- strong_endorsement: The issue/policy is clearly praised, defended, or framed as highly effective or beneficial
+- positive_endorsement: The issue/policy is discussed with a generally favorable or supportive tone
+- neutral_mention: The issue/policy is discussed factually and objectively, presenting information without taking a clear stance. Purely informational or historical descriptions should be classified here
+- conditional: The issue/policy is discussed with mixed framing — acknowledging both benefits and drawbacks, or using "it depends" language
+- negative_comparison: The issue/policy is clearly criticized, framed as harmful, ineffective, or problematic
+
+IMPORTANT classification guidance:
+- Factual, historical, or descriptive statements (e.g., "Policy X was enacted in 2014" or "Policy X continues to influence the landscape") are neutral_mention, NOT negative_comparison
+- Only classify as negative_comparison when there is explicit criticism or clear negative framing
+- Words like "influence", "impact", "affect", "change" are neutral unless accompanied by clearly negative context
+- Discussing consequences or effects factually is neutral_mention; arguing those effects are bad is negative_comparison
+- not_mentioned: The issue/topic does not appear in the response
+
+Return ONLY a valid JSON object with no markdown formatting."""
+        elif search_type == "public_figure":
+            system_prompt = """You are a public figure sentiment classifier. Analyze how AI responses describe public figures and notable people.
+
+For each person mentioned (or not mentioned) in the text, classify the sentiment as one of:
+- strong_endorsement: Person is clearly praised, celebrated, or positioned as highly influential/admirable
+- positive_endorsement: Person is mentioned positively or favorably with no significant qualifiers
+- neutral_mention: Person is mentioned factually without strong positive or negative framing. Biographical or descriptive statements should be classified here
+- conditional: Person is mentioned with mixed framing — acknowledging both achievements and controversies, or with caveats
+- negative_comparison: Person is clearly criticized, framed negatively, or positioned unfavorably compared to peers
+- not_mentioned: Person does not appear in the response
+
+IMPORTANT: Factual biographical statements (e.g., "Person X founded Company Y in 2010") are neutral_mention unless clearly laudatory or critical in tone.
+
+Return ONLY a valid JSON object with no markdown formatting."""
+        else:
+            system_prompt = """You are a brand sentiment classifier. Analyze how AI responses describe brands.
 
 For each brand mentioned (or not mentioned) in the text, classify the sentiment as one of:
 - strong_endorsement: Brand is clearly recommended, praised, or positioned as a top choice
@@ -940,42 +980,56 @@ IMPORTANT: Recognize brand name variations as the same brand:
 
 Return ONLY a valid JSON object with no markdown formatting."""
 
+        # Use appropriate terminology based on search type
+        if search_type == "issue":
+            subject_term = "issue/topic"
+            classify_label = "ISSUES/TOPICS TO CLASSIFY"
+            example_a, example_b, example_c = "Proposition 47", "Three Strikes Law", "Bail Reform"
+        elif search_type == "public_figure":
+            subject_term = "person/figure"
+            classify_label = "PEOPLE TO CLASSIFY"
+            example_a, example_b, example_c = "Elon Musk", "Tim Cook", "Satya Nadella"
+        else:
+            subject_term = "brand"
+            classify_label = "BRANDS TO CLASSIFY"
+            example_a, example_b, example_c = "Nike", "Adidas", "Puma"
+
         brands_list = ", ".join(f'"{b}"' for b in all_brands)
 
         if unique_domains:
             domains_list = ", ".join(f'"{d}"' for d in unique_domains)
-            user_prompt = f"""Analyze this AI response and classify how it describes each brand, both overall and per cited source domain.
+            user_prompt = f"""Analyze this AI response and classify how it describes each {subject_term}, both overall and per cited source domain.
 
 RESPONSE TEXT:
 {response_text[:4000]}
 
-BRANDS TO CLASSIFY: {brands_list}
+{classify_label}: {brands_list}
 
 SOURCE DOMAINS CITED: {domains_list}
 
 Return a JSON object with two keys:
-1. "overall" - maps each brand name to its overall sentiment in the response
-2. "by_source" - maps each source domain to a dict of brand sentiments as that source would describe them
+1. "overall" - maps each {subject_term} name to its overall sentiment/framing in the response
+2. "by_source" - maps each source domain to a dict of {subject_term} sentiments as that source would frame them
 
 Example format:
-{{"overall": {{"Nike": "strong_endorsement", "Adidas": "neutral_mention"}}, "by_source": {{"nytimes.com": {{"Nike": "strong_endorsement", "Adidas": "neutral_mention"}}, "reddit.com": {{"Nike": "conditional", "Adidas": "not_mentioned"}}}}}}
+{{"overall": {{"{example_a}": "strong_endorsement", "{example_b}": "neutral_mention"}}, "by_source": {{"nytimes.com": {{"{example_a}": "strong_endorsement", "{example_b}": "neutral_mention"}}, "reddit.com": {{"{example_a}": "conditional", "{example_b}": "not_mentioned"}}}}}}
 
-For "by_source", classify how each source domain likely describes each brand based on the context of the response. If a source domain is unlikely to discuss a brand, use "not_mentioned".
-Classify ALL brands listed under "overall". For "by_source", include ALL listed source domains.
-Use the EXACT brand names from the list above (not variations found in text)."""
+For "by_source", classify how each source domain likely frames each {subject_term} based on the context of the response. If a source domain is unlikely to discuss a {subject_term}, use "not_mentioned".
+Classify ALL {subject_term}s listed under "overall". For "by_source", include ALL listed source domains.
+Use the EXACT names from the list above (not variations found in text)."""
         else:
-            user_prompt = f"""Analyze this AI response and classify how it describes each brand.
+            user_prompt = f"""Analyze this AI response and classify how it describes each {subject_term}.
 
 RESPONSE TEXT:
 {response_text[:4000]}
 
-BRANDS TO CLASSIFY: {brands_list}
+{classify_label}: {brands_list}
 
-Return a JSON object where keys are the EXACT brand names from the list above (not variations found in text) and values are sentiment classifications.
+Return a JSON object where keys are the EXACT names from the list above (not variations found in text) and values are sentiment/framing classifications.
 Example format:
-{{"Nike": "strong_endorsement", "Adidas": "neutral_mention", "Puma": "not_mentioned"}}
+{{"{example_a}": "strong_endorsement", "{example_b}": "neutral_mention", "{example_c}": "not_mentioned"}}
 
-Classify ALL brands listed. If a brand appears under a different name variation (e.g., "Disney Plus" for "Disney+"), still classify it under the original name from the list."""
+Classify ALL {subject_term}s listed. If a {subject_term} appears under a different name variation, still classify it under the original name from the list."""
 
         try:
             response = await self.chat_completion(

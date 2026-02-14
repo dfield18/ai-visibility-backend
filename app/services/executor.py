@@ -389,6 +389,7 @@ class RunExecutor:
                         brand=brand,
                         competitors=competitors,
                         sources=result.sources,
+                        search_type=search_type,
                     )
                     result.brand_sentiment = sentiment_result.get("brand_sentiment", "not_mentioned")
                     result.competitor_sentiments = sentiment_result.get("competitor_sentiments", {})
