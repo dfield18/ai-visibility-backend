@@ -69,10 +69,12 @@ async def start_run(
             import stripe
             from app.core.config import settings
             stripe.api_key = getattr(settings, 'STRIPE_API_KEY', '') or ''
+            print(f"[Run] Checking billing for user {user.user_id}, stripe key configured: {bool(stripe.api_key)}")
             if stripe.api_key:
                 customers = stripe.Customer.search(
                     query=f'metadata["clerk_user_id"]:"{user.user_id}"',
                 )
+                print(f"[Run] Found {len(customers.data)} Stripe customers")
                 if customers.data:
                     subs = stripe.Subscription.list(
                         customer=customers.data[0].id,
@@ -80,8 +82,22 @@ async def start_run(
                         limit=1,
                     )
                     is_paid = bool(subs.data)
-        except Exception:
-            pass  # Default to free tier if Stripe unavailable
+                    print(f"[Run] Active subscriptions: {len(subs.data)}, is_paid={is_paid}")
+                    if not is_paid:
+                        # Also check past_due subscriptions
+                        past_due = stripe.Subscription.list(
+                            customer=customers.data[0].id,
+                            status='past_due',
+                            limit=1,
+                        )
+                        is_paid = bool(past_due.data)
+                        if is_paid:
+                            print(f"[Run] User has past_due subscription, treating as paid")
+        except Exception as e:
+            print(f"[Run] Stripe check failed: {type(e).__name__}: {e}")
+            # Default to free tier if Stripe unavailable
+    else:
+        print("[Run] No authenticated user, defaulting to free tier")
 
     if not is_paid:
         # Restrict to free providers
