@@ -1239,6 +1239,7 @@ Return a JSON array with deduplicated brand names in order of first appearance."
         self,
         response_text: str,
         primary_brand: str,
+        search_type: str = "brand",
     ) -> List[str]:
         """Extract all brand/company names mentioned in a response.
 
@@ -1247,7 +1248,8 @@ Return a JSON array with deduplicated brand names in order of first appearance."
 
         Args:
             response_text: The AI-generated response text to analyze.
-            primary_brand: The primary brand being tracked (to ensure it's included).
+            primary_brand: The primary brand being tracked (or category name for industry reports).
+            search_type: The search type (brand, category, local, issue, public_figure).
 
         Returns:
             List of brand/company names found in the response, in order of appearance.
@@ -1255,7 +1257,30 @@ Return a JSON array with deduplicated brand names in order of first appearance."
         if not response_text or not response_text.strip():
             return []
 
-        system_prompt = """You are a brand/company name extractor. Your job is to identify all brand names, company names, product names, and service names mentioned in the text.
+        if search_type == "category":
+            system_prompt = f"""You are a brand extractor for the "{primary_brand}" industry/category. Your job is to identify brands, companies, and products that are actual participants in the "{primary_brand}" market.
+
+Rules:
+- ONLY include brands/companies/products that compete in or belong to the "{primary_brand}" category
+- Do NOT include publishers, news outlets, or media companies (e.g., Forbes, Vogue, CNN, The New York Times, TechCrunch, CNET, Consumer Reports, Wirecutter)
+- Do NOT include platforms or tech companies unless they are actual competitors in this category (e.g., Amazon is a retailer, not a sneaker brand)
+- Do NOT include generic terms or category names (e.g., "sneakers", "running shoes")
+- Do NOT include people's names unless they are brand names in this category
+- Preserve the exact brand name as it appears in the text
+- Return names in the order they FIRST appear in the text
+- Return ONLY a JSON array of strings, no other text
+
+Example for "sneakers" category: ["Nike", "Adidas", "New Balance", "Puma", "ASICS"] — NOT ["Nike", "Forbes", "Amazon", "Vogue"]
+Example for "streaming services" category: ["Netflix", "Disney+", "Hulu", "HBO Max"] — NOT ["Netflix", "The Verge", "TechCrunch"]"""
+
+            user_prompt = f"""Extract all brands/companies/products that are actual competitors in the "{primary_brand}" category from this text:
+
+{response_text[:4000]}
+
+Return ONLY brands that belong to this industry — no publishers, media outlets, or unrelated companies.
+Return a JSON array of brand names in order of first appearance."""
+        else:
+            system_prompt = """You are a brand/company name extractor. Your job is to identify all brand names, company names, product names, and service names mentioned in the text.
 
 Rules:
 - Include all commercial brands, companies, products, and services
@@ -1266,7 +1291,7 @@ Rules:
 - Do NOT include people's names unless they are brand names
 - Return ONLY a JSON array of strings, no other text"""
 
-        user_prompt = f"""Extract all brand/company/product names from this text:
+            user_prompt = f"""Extract all brand/company/product names from this text:
 
 {response_text[:4000]}
 

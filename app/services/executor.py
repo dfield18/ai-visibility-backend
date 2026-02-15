@@ -389,6 +389,7 @@ class RunExecutor:
                     all_brands = await self.openai_service.extract_all_brands(
                         response_text=result.response_text,
                         primary_brand=brand,
+                        search_type=search_type,
                     )
                     result.all_brands_mentioned = all_brands
                 except Exception as e:
