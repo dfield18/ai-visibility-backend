@@ -1235,6 +1235,72 @@ Return a JSON array with deduplicated brand names in order of first appearance."
             print(f"[OpenAI] Brand deduplication failed: {e}")
             return brands
 
+    async def build_brand_normalization_map(self, brands: List[str]) -> Dict[str, str]:
+        """Build a mapping of brand name variants to canonical names across all results.
+
+        Takes all unique brand names found across multiple AI responses and
+        identifies which names refer to the same brand, returning a mapping
+        from every name to its canonical form.
+
+        Args:
+            brands: List of all unique brand names across results.
+
+        Returns:
+            Dict mapping each brand name to its canonical form.
+            Names that have no variants map to themselves.
+        """
+        if not brands or len(brands) <= 1:
+            return {b: b for b in brands}
+
+        brands_json = json.dumps(brands)
+
+        system_prompt = """You are a brand name normalization expert. Given a list of brand names collected from multiple AI responses, identify which names refer to the same brand/company/product and group them under a single canonical name.
+
+Rules:
+- Group brand name variations that refer to the same entity (e.g., "ESPN+" and "ESPN Plus" and "ESPN Unlimited" are the same)
+- Keep the most commonly used/recognizable version as the canonical name
+- Keep distinct products separate ("YouTube" vs "YouTube TV" are different)
+- Return a JSON object where each key is an original brand name and each value is the canonical name it maps to
+- Every input brand name MUST appear as a key in the output
+- Brands with no variants should map to themselves
+
+Examples:
+- Input: ["ESPN+", "ESPN Unlimited", "YouTube TV", "Hulu", "Hulu Live"]
+- Output: {"ESPN+": "ESPN+", "ESPN Unlimited": "ESPN+", "YouTube TV": "YouTube TV", "Hulu": "Hulu", "Hulu Live": "Hulu"}"""
+
+        user_prompt = f"""Normalize these brand names, mapping variants to canonical names:
+
+{brands_json}
+
+Return a JSON object mapping each name to its canonical form."""
+
+        try:
+            response = await self.chat_completion(
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.1,
+            )
+
+            result_text = response.text.strip()
+            result_text = re.sub(r"```json?\s*", "", result_text)
+            result_text = re.sub(r"```\s*", "", result_text)
+            result_text = result_text.strip()
+
+            mapping = json.loads(result_text)
+
+            if isinstance(mapping, dict) and len(mapping) > 0:
+                # Ensure all input brands are in the mapping
+                for b in brands:
+                    if b not in mapping:
+                        mapping[b] = b
+                return mapping
+
+            return {b: b for b in brands}
+
+        except Exception as e:
+            print(f"[OpenAI] Brand normalization map failed: {e}")
+            return {b: b for b in brands}
+
     async def extract_all_brands(
         self,
         response_text: str,

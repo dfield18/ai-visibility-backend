@@ -110,6 +110,10 @@ class Run(Base):
         default=False,
         nullable=False,
     )
+    brand_name_map: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

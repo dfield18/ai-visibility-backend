@@ -254,12 +254,84 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
         remaining_calls = total_calls - completed
         estimated_remaining = int(remaining_calls / rate) if rate > 0 else None
 
+    # Build brand normalization map for completed runs
+    brand_name_map = run.brand_name_map
+    if run.status == Run.STATUS_COMPLETE and brand_name_map is None and all_results:
+        # Collect all unique brand names across all results
+        all_brand_names: set[str] = set()
+        for r in all_results:
+            if r.all_brands_mentioned:
+                all_brand_names.update(r.all_brands_mentioned)
+            if r.competitor_sentiments:
+                all_brand_names.update(r.competitor_sentiments.keys())
+
+        if len(all_brand_names) > 1:
+            try:
+                openai_svc = OpenAIService()
+                brand_name_map = await openai_svc.build_brand_normalization_map(
+                    list(all_brand_names)
+                )
+                # Cache on the run so we don't re-call
+                run.brand_name_map = brand_name_map
+                await db.commit()
+            except Exception as e:
+                print(f"[Run] Brand normalization failed: {e}")
+                brand_name_map = None
+
+    # Apply brand normalization to results if we have a map
+    def _normalize_brands(result: Result) -> dict:
+        """Return normalized brand-related fields for a result."""
+        norm_all_brands = result.all_brands_mentioned
+        norm_comp_sentiments = result.competitor_sentiments
+        norm_source_sentiments = result.source_brand_sentiments
+
+        if brand_name_map:
+            # Normalize all_brands_mentioned (deduplicate after remapping)
+            if result.all_brands_mentioned:
+                seen: set[str] = set()
+                normalized: list[str] = []
+                for b in result.all_brands_mentioned:
+                    canonical = brand_name_map.get(b, b)
+                    if canonical not in seen:
+                        seen.add(canonical)
+                        normalized.append(canonical)
+                norm_all_brands = normalized
+
+            # Normalize competitor_sentiments keys
+            if result.competitor_sentiments:
+                merged: dict[str, str] = {}
+                for name, sentiment in result.competitor_sentiments.items():
+                    canonical = brand_name_map.get(name, name)
+                    if canonical not in merged:
+                        merged[canonical] = sentiment
+                norm_comp_sentiments = merged
+
+            # Normalize source_brand_sentiments keys
+            if result.source_brand_sentiments:
+                norm_source: dict[str, dict[str, str]] = {}
+                for source, brand_sents in result.source_brand_sentiments.items():
+                    merged_source: dict[str, str] = {}
+                    for name, sentiment in brand_sents.items():
+                        canonical = brand_name_map.get(name, name)
+                        if canonical not in merged_source:
+                            merged_source[canonical] = sentiment
+                    norm_source[source] = merged_source
+                norm_source_sentiments = norm_source
+
+        return {
+            "all_brands_mentioned": norm_all_brands,
+            "competitor_sentiments": norm_comp_sentiments,
+            "source_brand_sentiments": norm_source_sentiments,
+        }
+
     # Build summary from successful results (all runs combined)
-    summary = _build_summary(all_results, run.brand) if all_results else None
+    summary = _build_summary(all_results, run.brand, brand_name_map) if all_results else None
 
     # Convert results to response format
-    result_items = [
-        ResultItem(
+    result_items = []
+    for r in sorted(all_results, key=lambda x: x.created_at):
+        norm = _normalize_brands(r)
+        result_items.append(ResultItem(
             id=r.id,
             prompt=r.prompt,
             provider=r.provider,
@@ -276,13 +348,11 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
             sources=r.sources,
             grounding_metadata=r.grounding_metadata,
             brand_sentiment=r.brand_sentiment,
-            competitor_sentiments=r.competitor_sentiments,
-            all_brands_mentioned=r.all_brands_mentioned,
-            source_brand_sentiments=r.source_brand_sentiments,
+            competitor_sentiments=norm["competitor_sentiments"],
+            all_brands_mentioned=norm["all_brands_mentioned"],
+            source_brand_sentiments=norm["source_brand_sentiments"],
             created_at=r.created_at,
-        )
-        for r in sorted(all_results, key=lambda x: x.created_at)
-    ]
+        ))
 
     # Get search_type from config (default to 'brand' for backwards compatibility)
     search_type = run.config.get("search_type", "brand") if run.config else "brand"
@@ -797,12 +867,17 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
     return "\n".join(lines)
 
 
-def _build_summary(results: List[Result], brand: str) -> Optional[RunSummary]:
+def _build_summary(
+    results: List[Result],
+    brand: str,
+    brand_name_map: Optional[Dict[str, str]] = None,
+) -> Optional[RunSummary]:
     """Build summary statistics from results.
 
     Args:
         results: List of Result objects.
         brand: The brand being tracked.
+        brand_name_map: Optional mapping of brand name variants to canonical names.
 
     Returns:
         RunSummary with aggregated statistics, or None if no successful results.
@@ -830,14 +905,18 @@ def _build_summary(results: List[Result], brand: str) -> Optional[RunSummary]:
             rate=provider_mentioned / len(provider_results) if provider_results else 0,
         )
 
-    # Calculate competitor mentions
+    # Calculate competitor mentions (with brand normalization)
     competitor_mentions: Dict[str, CompetitorStats] = {}
     all_competitors: Dict[str, int] = {}
 
     for r in successful:
         brands_list = r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or [])
+        seen_in_result: set[str] = set()
         for comp in brands_list:
-            all_competitors[comp] = all_competitors.get(comp, 0) + 1
+            canonical = brand_name_map.get(comp, comp) if brand_name_map else comp
+            if canonical not in seen_in_result:
+                seen_in_result.add(canonical)
+                all_competitors[canonical] = all_competitors.get(canonical, 0) + 1
 
     for comp, count in all_competitors.items():
         competitor_mentions[comp] = CompetitorStats(
