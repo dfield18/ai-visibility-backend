@@ -648,11 +648,13 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
         lines.append("")
         lines.append("=== AGGREGATE STATISTICS (use these exact numbers) ===")
 
-        # For category reports, show brand mention rates from competitors_mentioned
+        # For category reports, show brand mention rates from all_brands_mentioned (with fallback)
+        brand_lower = brand.lower()
         brand_counts: Dict[str, int] = {}
         for r in results:
-            if r.competitors_mentioned:
-                for comp in r.competitors_mentioned:
+            brands_list = r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or [])
+            for comp in brands_list:
+                if comp.lower() != brand_lower:
                     brand_counts[comp] = brand_counts.get(comp, 0) + 1
 
         if brand_counts:
@@ -681,8 +683,9 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
         for provider, provider_results in by_provider.items():
             provider_brand_counts: Dict[str, int] = {}
             for r in provider_results:
-                if r.competitors_mentioned:
-                    for comp in r.competitors_mentioned:
+                brands_list = r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or [])
+                for comp in brands_list:
+                    if comp.lower() != brand_lower:
                         provider_brand_counts[comp] = provider_brand_counts.get(comp, 0) + 1
             if provider_brand_counts:
                 top_b = max(provider_brand_counts, key=provider_brand_counts.get)
@@ -733,11 +736,13 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
             p_rate = (p_mentioned / len(provider_results) * 100) if provider_results else 0
             lines.append(f"  {_provider_display_name(provider)}: {p_mentioned}/{len(provider_results)} ({p_rate:.1f}%)")
 
-        # Competitor mention rates
+        # Competitor mention rates (prefer all_brands_mentioned, fall back to competitors_mentioned for old runs)
+        brand_lower = brand.lower()
         competitor_counts: Dict[str, int] = {}
         for r in results:
-            if r.competitors_mentioned:
-                for comp in r.competitors_mentioned:
+            brands_list = r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or [])
+            for comp in brands_list:
+                if comp.lower() != brand_lower:
                     competitor_counts[comp] = competitor_counts.get(comp, 0) + 1
 
         if competitor_counts:
@@ -770,10 +775,11 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
         for r in provider_results:
             lines.append(f"\nPrompt: {r.prompt}")
             lines.append(f"Brand Mentioned: {'Yes' if r.brand_mentioned else 'No'}")
-            if r.competitors_mentioned:
-                lines.append(f"Competitors Mentioned: {', '.join(r.competitors_mentioned)}")
+            brands_in_response = r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or [])
+            if brands_in_response:
+                lines.append(f"Brands/Competitors Mentioned: {', '.join(brands_in_response)}")
             else:
-                lines.append("Competitors Mentioned: None")
+                lines.append("Brands/Competitors Mentioned: None")
             lines.append(f"Response Type: {r.response_type or 'Unknown'}")
 
             # Include truncated response text
@@ -829,9 +835,9 @@ def _build_summary(results: List[Result], brand: str) -> Optional[RunSummary]:
     all_competitors: Dict[str, int] = {}
 
     for r in successful:
-        if r.competitors_mentioned:
-            for comp in r.competitors_mentioned:
-                all_competitors[comp] = all_competitors.get(comp, 0) + 1
+        brands_list = r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or [])
+        for comp in brands_list:
+            all_competitors[comp] = all_competitors.get(comp, 0) + 1
 
     for comp, count in all_competitors.items():
         competitor_mentions[comp] = CompetitorStats(
