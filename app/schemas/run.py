@@ -27,7 +27,7 @@ class RunRequest(BaseModel):
     search_type: Literal["brand", "category", "local", "issue", "public_figure"] = Field(default="brand")
     location: Optional[str] = Field(None, max_length=255, description="Location for local search type")
     prompts: List[str] = Field(..., min_length=1, max_length=20)
-    competitors: List[str] = Field(..., min_length=1, max_length=10)
+    competitors: List[str] = Field(default_factory=list, max_length=10)
     providers: List[Literal["openai", "gemini", "anthropic", "perplexity", "ai_overviews", "grok", "llama"]] = Field(..., min_length=1)
     temperatures: List[float] = Field(..., min_length=1)
     repeats: int = Field(default=1, ge=1, le=10)
