@@ -1040,7 +1040,7 @@ Return ONLY a valid JSON object with no markdown formatting."""
             user_prompt = f"""Analyze this AI response and classify how it describes each {subject_term}, both overall and per cited source domain.
 
 RESPONSE TEXT:
-{response_text[:4000]}
+{response_text[:6000]}
 
 {classify_label}: {brands_list}
 
@@ -1060,7 +1060,7 @@ Use the EXACT names from the list above (not variations found in text)."""
             user_prompt = f"""Analyze this AI response and classify how it describes each {subject_term}.
 
 RESPONSE TEXT:
-{response_text[:4000]}
+{response_text[:6000]}
 
 {classify_label}: {brands_list}
 
@@ -1341,7 +1341,7 @@ Example for "streaming services" category: ["Netflix", "Disney+", "Hulu", "HBO M
 
             user_prompt = f"""Extract all brands/companies/products that are actual competitors in the "{primary_brand}" category from this text:
 
-{response_text[:4000]}
+{response_text[:6000]}
 
 Return ONLY brands that belong to this industry — no publishers, media outlets, or unrelated companies.
 Return a JSON array of brand names in order of first appearance."""
@@ -1359,7 +1359,7 @@ Rules:
 
             user_prompt = f"""Extract all brand/company/product names from this text:
 
-{response_text[:4000]}
+{response_text[:6000]}
 
 Return a JSON array of brand names in order of first appearance. Example: ["Apple", "Samsung", "Google Pixel"]"""
 
