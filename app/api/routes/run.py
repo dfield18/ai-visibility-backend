@@ -718,7 +718,8 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
         lines.append("")
         lines.append("=== AGGREGATE STATISTICS (use these exact numbers) ===")
 
-        # For category reports, show brand mention rates from all_brands_mentioned (with fallback)
+        # For category reports, show brand visibility scores as average of per-provider rates.
+        # This weights each provider equally regardless of how many responses it has.
         brand_lower = brand.lower()
         brand_counts: Dict[str, int] = {}
         for r in results:
@@ -727,18 +728,40 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
                 if comp.lower() != brand_lower:
                     brand_counts[comp] = brand_counts.get(comp, 0) + 1
 
+        # Group results by provider for per-provider rate calculation
+        by_provider_for_brands: Dict[str, list] = {}
+        for r in results:
+            if r.provider not in by_provider_for_brands:
+                by_provider_for_brands[r.provider] = []
+            by_provider_for_brands[r.provider].append(r)
+
+        def _per_provider_visibility(brand_name: str) -> float:
+            """Compute visibility as average of per-provider mention rates."""
+            rates = []
+            for prov_results in by_provider_for_brands.values():
+                prov_total = len(prov_results)
+                if prov_total == 0:
+                    continue
+                prov_mentioned = sum(
+                    1 for r in prov_results
+                    if brand_name in (r.all_brands_mentioned if r.all_brands_mentioned else (r.competitors_mentioned or []))
+                )
+                rates.append((prov_mentioned / prov_total) * 100)
+            return sum(rates) / len(rates) if rates else 0.0
+
         if brand_counts:
             lines.append("")
-            lines.append("Brand Mention Rates (all brands recommended in this category):")
-            for b, count in sorted(brand_counts.items(), key=lambda x: -x[1]):
-                b_rate = (count / len(results) * 100) if results else 0
-                lines.append(f"  {b}: {count}/{len(results)} ({b_rate:.1f}%)")
+            lines.append("Brand Visibility Scores (average of per-provider mention rates):")
+            brand_visibility: Dict[str, float] = {}
+            for b in brand_counts:
+                brand_visibility[b] = _per_provider_visibility(b)
+            for b, vis in sorted(brand_visibility.items(), key=lambda x: -x[1]):
+                lines.append(f"  {b}: {vis:.1f}% visibility score")
 
             # Identify market leader
-            top_brand = max(brand_counts, key=brand_counts.get)
-            top_count = brand_counts[top_brand]
-            top_rate = (top_count / len(results) * 100) if results else 0
-            lines.append(f"\nMarket Leader: {top_brand} ({top_rate:.1f}% mention rate)")
+            top_brand = max(brand_visibility, key=brand_visibility.get)
+            top_rate = brand_visibility[top_brand]
+            lines.append(f"\nMarket Leader: {top_brand} ({top_rate:.1f}% visibility score)")
             lines.append(f"Total Unique Brands Mentioned: {len(brand_counts)}")
 
         # Per-provider brand breakdown
@@ -787,24 +810,26 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
         # === Pre-computed aggregate statistics ===
         lines.append("=== AGGREGATE STATISTICS (use these exact numbers) ===")
 
-        # Overall brand mention rate
-        mentioned_count = sum(1 for r in results if r.brand_mentioned)
-        mention_rate = (mentioned_count / len(results) * 100) if results else 0
-        lines.append(f"Overall Brand Visibility: {brand} mentioned in {mentioned_count}/{len(results)} responses ({mention_rate:.1f}%)")
-
-        # Per-provider stats
+        # Overall brand visibility — average of per-provider mention rates
         by_provider: Dict[str, List[Result]] = {}
         for r in results:
             if r.provider not in by_provider:
                 by_provider[r.provider] = []
             by_provider[r.provider].append(r)
 
-        lines.append("")
-        lines.append("Brand Visibility by Provider:")
+        provider_rates = []
+        provider_lines = []
         for provider, provider_results in by_provider.items():
             p_mentioned = sum(1 for r in provider_results if r.brand_mentioned)
             p_rate = (p_mentioned / len(provider_results) * 100) if provider_results else 0
-            lines.append(f"  {_provider_display_name(provider)}: {p_mentioned}/{len(provider_results)} ({p_rate:.1f}%)")
+            provider_rates.append(p_rate)
+            provider_lines.append(f"  {_provider_display_name(provider)}: {p_mentioned}/{len(provider_results)} ({p_rate:.1f}%)")
+
+        mention_rate = sum(provider_rates) / len(provider_rates) if provider_rates else 0.0
+        lines.append(f"Overall Brand Visibility: {brand} visibility score {mention_rate:.1f}% (averaged across providers)")
+        lines.append("")
+        lines.append("Brand Visibility by Provider:")
+        lines.extend(provider_lines)
 
         # Competitor mention rates (prefer all_brands_mentioned, fall back to competitors_mentioned for old runs)
         brand_lower = brand.lower()
