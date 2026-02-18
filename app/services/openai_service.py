@@ -1506,13 +1506,11 @@ CONTENT TO COVER (ALL REQUIRED):
 
 3. **Provider differences** - Do different AI platforms favor different brands? Note any significant provider-specific biases
 
-4. **Industry coverage** - How well do AI platforms cover this category? Are recommendations diverse or narrow?
+4. **Sentiment patterns** - How are the top brands characterized? Any notable framing differences between competitors?
 
-5. **Sentiment patterns** - How are the top brands characterized? Any notable framing differences between competitors?
+5. **Source patterns** - What types of sources do AI platforms cite for this category? Any notable gaps?
 
-6. **Source patterns** - What types of sources do AI platforms cite for this category? Any notable gaps?
-
-7. **Key insight** - One standout finding about how AI is shaping recommendations in this industry
+6. **Key insight** - One standout finding about how AI is shaping recommendations in this industry
 
 INTERPRETATION GUIDANCE:
 - Frame everything as an industry analysis, NOT as advice for a single brand
