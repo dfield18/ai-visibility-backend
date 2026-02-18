@@ -256,6 +256,7 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
 
     # Build brand normalization map for completed runs
     brand_name_map = run.brand_name_map
+    run_search_type = run.config.get("search_type", "brand") if run.config else "brand"
     if run.status == Run.STATUS_COMPLETE and brand_name_map is None and all_results:
         # Collect all unique brand names across all results
         all_brand_names: set[str] = set()
@@ -269,7 +270,8 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
             try:
                 openai_svc = OpenAIService()
                 brand_name_map = await openai_svc.build_brand_normalization_map(
-                    list(all_brand_names)
+                    list(all_brand_names),
+                    search_type=run_search_type,
                 )
                 # Cache on the run so we don't re-call
                 run.brand_name_map = brand_name_map
@@ -355,7 +357,7 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
         ))
 
     # Get search_type from config (default to 'brand' for backwards compatibility)
-    search_type = run.config.get("search_type", "brand") if run.config else "brand"
+    search_type = run_search_type
 
     # Build extension info
     extension_info = None

@@ -1235,7 +1235,9 @@ Return a JSON array with deduplicated brand names in order of first appearance."
             print(f"[OpenAI] Brand deduplication failed: {e}")
             return brands
 
-    async def build_brand_normalization_map(self, brands: List[str]) -> Dict[str, str]:
+    async def build_brand_normalization_map(
+        self, brands: List[str], search_type: str = "brand"
+    ) -> Dict[str, str]:
         """Build a mapping of brand name variants to canonical names across all results.
 
         Takes all unique brand names found across multiple AI responses and
@@ -1244,6 +1246,7 @@ Return a JSON array with deduplicated brand names in order of first appearance."
 
         Args:
             brands: List of all unique brand names across results.
+            search_type: The search type ('brand', 'category', 'local', etc.).
 
         Returns:
             Dict mapping each brand name to its canonical form.
@@ -1254,19 +1257,30 @@ Return a JSON array with deduplicated brand names in order of first appearance."
 
         brands_json = json.dumps(brands)
 
-        system_prompt = """You are a brand name normalization expert. Given a list of brand names collected from multiple AI responses, identify which names refer to the same brand/company/product and group them under a single canonical name.
+        # For brand reports, roll up sub-products to their parent brand.
+        # For industry/category reports, keep distinct product lines separate.
+        if search_type == "category":
+            rollup_rule = "- Keep distinct product lines separate (\"YouTube\" vs \"YouTube TV\" are different, \"Nike Air Max\" vs \"Nike Sabrina\" are different)"
+            rollup_example_input = '["ESPN+", "ESPN Unlimited", "YouTube TV", "Hulu", "Hulu Live"]'
+            rollup_example_output = '{"ESPN+": "ESPN+", "ESPN Unlimited": "ESPN+", "YouTube TV": "YouTube TV", "Hulu": "Hulu", "Hulu Live": "Hulu"}'
+        else:
+            rollup_rule = "- Roll up specific product lines, models, and sub-brands to their parent brand (e.g., \"Nike Sabrina\" → \"Nike\", \"iPhone 15 Pro\" → \"Apple\", \"Galaxy S24\" → \"Samsung\", \"Model Y\" → \"Tesla\")"
+            rollup_example_input = '["Nike", "Nike Sabrina", "Nike Air Max", "Adidas", "Adidas Ultraboost", "New Balance"]'
+            rollup_example_output = '{"Nike": "Nike", "Nike Sabrina": "Nike", "Nike Air Max": "Nike", "Adidas": "Adidas", "Adidas Ultraboost": "Adidas", "New Balance": "New Balance"}'
+
+        system_prompt = f"""You are a brand name normalization expert. Given a list of brand names collected from multiple AI responses, identify which names refer to the same brand/company/product and group them under a single canonical name.
 
 Rules:
 - Group brand name variations that refer to the same entity (e.g., "ESPN+" and "ESPN Plus" and "ESPN Unlimited" are the same)
 - Keep the most commonly used/recognizable version as the canonical name
-- Keep distinct products separate ("YouTube" vs "YouTube TV" are different)
+{rollup_rule}
 - Return a JSON object where each key is an original brand name and each value is the canonical name it maps to
 - Every input brand name MUST appear as a key in the output
 - Brands with no variants should map to themselves
 
 Examples:
-- Input: ["ESPN+", "ESPN Unlimited", "YouTube TV", "Hulu", "Hulu Live"]
-- Output: {"ESPN+": "ESPN+", "ESPN Unlimited": "ESPN+", "YouTube TV": "YouTube TV", "Hulu": "Hulu", "Hulu Live": "Hulu"}"""
+- Input: {rollup_example_input}
+- Output: {rollup_example_output}"""
 
         user_prompt = f"""Normalize these brand names, mapping variants to canonical names:
 
