@@ -751,17 +751,31 @@ def _format_results_for_ai(results: List[Result], brand: str, search_type: str =
 
         if brand_counts:
             lines.append("")
-            lines.append("Brand Visibility Scores (average of per-provider mention rates):")
+            lines.append("IMPORTANT: 'Visibility score' and 'share of voice' are DIFFERENT metrics. Do NOT confuse them.")
+            lines.append("- Visibility score = % of AI responses that mention the brand (higher = mentioned more often)")
+            lines.append("- Share of voice = brand's mentions / total brand mentions across all responses (shares sum to ~100%)")
+            lines.append("")
+            lines.append("Brand Visibility Scores (% of AI responses that mention each brand):")
             brand_visibility: Dict[str, float] = {}
             for b in brand_counts:
                 brand_visibility[b] = _per_provider_visibility(b)
             for b, vis in sorted(brand_visibility.items(), key=lambda x: -x[1]):
                 lines.append(f"  {b}: {vis:.1f}% visibility score")
 
+            # Share of voice (brand mentions / total brand mentions)
+            total_brand_mentions = sum(brand_counts.values())
+            if total_brand_mentions > 0:
+                lines.append("")
+                lines.append("Brand Share of Voice (% of total brand mentions captured by each brand):")
+                for b, count in sorted(brand_counts.items(), key=lambda x: -x[1]):
+                    sov = (count / total_brand_mentions) * 100
+                    lines.append(f"  {b}: {sov:.1f}% share of voice ({count} mentions)")
+
             # Identify market leader
             top_brand = max(brand_visibility, key=brand_visibility.get)
             top_rate = brand_visibility[top_brand]
-            lines.append(f"\nMarket Leader: {top_brand} ({top_rate:.1f}% visibility score)")
+            top_sov = (brand_counts[top_brand] / total_brand_mentions * 100) if total_brand_mentions > 0 else 0.0
+            lines.append(f"\nMarket Leader: {top_brand} ({top_rate:.1f}% visibility score, {top_sov:.1f}% share of voice)")
             lines.append(f"Total Unique Brands Mentioned: {len(brand_counts)}")
 
         # Per-provider brand breakdown
