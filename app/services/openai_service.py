@@ -1491,55 +1491,40 @@ Return a JSON array of brand names in order of first appearance. Example: ["Appl
             system_prompt = (
                 "You are an AI industry landscape analyst. Your role is to analyze how AI platforms "
                 "recommend and discuss brands within a specific product category or industry.\n\n"
-                "You produce executive-ready industry landscape summaries that are clear, accurate, "
-                "and actionable. You prioritize correct interpretation of quantitative data, "
-                "competitive dynamics, and market-relevant insights.\n\n"
-                "You write for brand, SEO, growth, or product leaders who want to understand how "
-                "AI platforms represent their industry — not just their own brand.\n\n"
-                "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations."
+                "You produce concise, executive-ready industry landscape summaries. "
+                "You write for brand, SEO, growth, or product leaders.\n\n"
+                "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations. "
+                "Do NOT include any specific percentages or numbers — the dashboard will display exact metrics separately."
             )
 
-            user_prompt = f"""Analyze the following AI visibility data for the "{brand}" industry/category and produce an industry landscape summary.
+            user_prompt = f"""Analyze the following AI visibility data for the "{brand}" industry/category and produce a brief industry landscape summary.
 
 DATA:
 {results_data}
 
 OUTPUT FORMAT (STRICT - PLAIN TEXT ONLY):
 
-Begin with one bolded headline sentence (using **bold**) that states the dominant finding about the {brand} landscape in AI responses.
-– The headline MUST reflect the overall competitive dynamics (e.g., who dominates, how fragmented the market is, which providers favor which brands)
+Write exactly 4 short paragraphs (2-3 sentences each), separated by blank lines.
+Each paragraph MUST begin with a bolded label (using **bold**).
 
-Follow with 4–5 short paragraphs, separated by line breaks.
-Each paragraph MUST begin with a bolded lead-in phrase (using **bold**).
+SECTIONS (ALL REQUIRED):
 
-CONTENT TO COVER (ALL REQUIRED):
+1. **Market leader** – Which brand dominates AI recommendations in this category and why. Mention the top 2-3 brands only.
 
-1. **Market leader** - Which brand dominates AI recommendations in this category, and how dominant they are
+2. **Provider differences** – Do different AI platforms favor different brands? Note any significant provider-specific biases.
 
-2. **Competitive landscape** - How the top brands stack up against each other in mention rates and ranking positions
+3. **Sentiment patterns** – How are the top brands characterized? Any notable framing differences between competitors?
 
-3. **Provider differences** - Do different AI platforms favor different brands? Note any significant provider-specific biases
+4. **Key insight** – One standout finding about how AI is shaping the {brand} landscape.
 
-4. **Sentiment patterns** - How are the top brands characterized? Any notable framing differences between competitors?
-
-5. **Source patterns** - What types of sources do AI platforms cite for this category? Any notable gaps?
-
-6. **Key insight** - One standout finding about how AI is shaping recommendations in this industry
-
-INTERPRETATION GUIDANCE:
-- Frame everything as an industry analysis, NOT as advice for a single brand
-- Compare brands against each other, not against an ideal
-- Highlight which brands are winning and losing in AI visibility
-- Note if the market is concentrated (one dominant player) or fragmented
-
-STYLE RULES:
+STRICT RULES:
+- Do NOT include any percentages, numbers, or statistics — the UI shows exact metrics alongside this text
+- Do NOT list all brands — only reference the top 2-3 by name
 - Do NOT use bullet points or numbered lists
-- Use line breaks between paragraphs
-- Avoid hedging language ("may indicate", "appears to be")
-- Be specific, comparative, and decisive
-- Do NOT restate the prompt or describe methodology
+- Be specific, comparative, and decisive — no hedging language
+- Keep it concise: the entire output should be 4 short paragraphs, nothing more
 
-CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON."""
+CRITICAL: Return ONLY plain text with **bold** formatting. No percentages. No JSON."""
         else:
             system_prompt = (
                 "You are an AI visibility analyst. Your role is to analyze how brands appear "
