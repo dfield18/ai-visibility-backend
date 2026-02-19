@@ -1529,58 +1529,42 @@ CRITICAL: Return ONLY plain text with **bold** formatting. No percentages. No JS
             system_prompt = (
                 "You are an AI visibility analyst. Your role is to analyze how brands appear "
                 "in AI-generated responses across major AI providers.\n\n"
-                "You produce executive-ready summaries that are clear, accurate, and actionable. "
-                "You prioritize correct interpretation of quantitative data, comparative clarity, "
-                "and business-relevant insights over cautious or academic language.\n\n"
-                "You write for brand, SEO, growth, or product leaders, not researchers. "
-                "Your summaries should read like a concise analyst brief suitable for a product "
-                "dashboard or internal intelligence report.\n\n"
-                "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations."
+                "You produce concise, executive-ready summaries. "
+                "You write for brand, SEO, growth, or product leaders.\n\n"
+                "IMPORTANT: Return ONLY plain text. Do NOT return JSON. Do NOT include recommendations. "
+                "Do NOT include any specific percentages or numbers — the dashboard will display exact metrics separately."
             )
 
-            user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce an executive summary.
+            user_prompt = f"""Analyze the following AI visibility data for the {entity_type} "{brand}" and produce a brief executive summary.
 
 DATA:
 {results_data}
 
 OUTPUT FORMAT (STRICT - PLAIN TEXT ONLY):
 
-Begin with one bolded headline sentence (using **bold**) that states the dominant conclusion about {brand}'s AI visibility.
-– The headline MUST reflect the overall quantitative pattern
-– It should also name the primary driver (e.g., strong top-rank placement, broad provider coverage, or a specific provider gap)
+Write exactly 5 short paragraphs (2-3 sentences each), separated by blank lines.
+Each paragraph MUST begin with a bolded label (using **bold**).
 
-Follow with 4–5 short paragraphs, separated by line breaks.
-Each paragraph MUST begin with a bolded lead-in phrase (using **bold**).
+SECTIONS (ALL REQUIRED):
 
-CONTENT TO COVER (ALL REQUIRED):
+1. **Overall visibility** – How {brand} performs across AI providers overall. Is it a leading recommendation or an occasional mention?
 
-1. **Overall visibility** - How frequently {brand} is mentioned across AI providers and prompts
+2. **Ranking quality** – Is {brand} positioned as a top recommendation or a later alternative? Characterize qualitatively.
 
-2. **Ranking quality** - Whether {brand} is positioned as a leading recommendation vs later alternative
+3. **Provider differences** – Do different AI platforms treat {brand} differently? Note any standout providers.
 
-3. **Provider differences** - Over- or under-performance by specific AI providers
+4. **Competitive context** – Which competitors appear alongside {brand} and how does {brand} compare qualitatively?
 
-4. **Competitive context** - Which competitors appear most often and outrank {brand}
+5. **Sentiment and framing** – How is {brand} characterized by AI platforms? What's the dominant tone?
 
-5. **Sentiment and framing** - Dominant sentiment and how the brand is framed
-
-6. **Source patterns** - Commonly cited source types and notable gaps
-
-7. **Actionable takeaway** - One concrete recommendation tied to the weakest dimension
-
-INTERPRETATION THRESHOLDS:
-- Presence in ≈70%+ of responses → strong AI visibility
-- Presence in ~50% of responses → moderate AI visibility
-- Presence in minority of responses → weak AI visibility
-
-STYLE RULES:
+STRICT RULES:
+- Do NOT include any percentages, numbers, or statistics — the UI shows exact metrics alongside this text
+- Do NOT claim brands are "exclusively" mentioned or "the only" brand — always assume other brands are present
 - Do NOT use bullet points or numbered lists
-- Use line breaks between paragraphs
-- Avoid hedging language ("may indicate", "appears to be")
-- Be specific, comparative, and decisive
-- Do NOT restate the prompt or describe methodology
+- Be specific, comparative, and decisive — no hedging language
+- Keep it concise: the entire output should be 5 short paragraphs, nothing more
 
-CRITICAL: Return ONLY plain text with **bold** formatting. Do NOT return JSON."""
+CRITICAL: Return ONLY plain text with **bold** formatting. No percentages. No JSON."""
 
         try:
             response = await self.chat_completion(
