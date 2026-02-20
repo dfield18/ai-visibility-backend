@@ -284,6 +284,7 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
     def _normalize_brands(result: Result) -> dict:
         """Return normalized brand-related fields for a result."""
         norm_all_brands = result.all_brands_mentioned
+        norm_competitors = result.competitors_mentioned
         norm_comp_sentiments = result.competitor_sentiments
         norm_source_sentiments = result.source_brand_sentiments
 
@@ -298,6 +299,17 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
                         seen.add(canonical)
                         normalized.append(canonical)
                 norm_all_brands = normalized
+
+            # Normalize competitors_mentioned (deduplicate after remapping)
+            if result.competitors_mentioned:
+                seen_comp: set[str] = set()
+                normalized_comp: list[str] = []
+                for c in result.competitors_mentioned:
+                    canonical = brand_name_map.get(c, c)
+                    if canonical not in seen_comp:
+                        seen_comp.add(canonical)
+                        normalized_comp.append(canonical)
+                norm_competitors = normalized_comp
 
             # Normalize competitor_sentiments keys
             if result.competitor_sentiments:
@@ -322,6 +334,7 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
 
         return {
             "all_brands_mentioned": norm_all_brands,
+            "competitors_mentioned": norm_competitors,
             "competitor_sentiments": norm_comp_sentiments,
             "source_brand_sentiments": norm_source_sentiments,
         }
@@ -343,7 +356,7 @@ async def get_run_status(run_id: UUID, db: DatabaseDep) -> RunStatusResponse:
             response_text=r.response_text,
             error=r.error,
             brand_mentioned=r.brand_mentioned,
-            competitors_mentioned=r.competitors_mentioned,
+            competitors_mentioned=norm["competitors_mentioned"],
             response_type=r.response_type,
             tokens=r.tokens,
             cost=float(r.cost) if r.cost else None,
