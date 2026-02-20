@@ -1359,6 +1359,28 @@ Example for "streaming services" category: ["Netflix", "Disney+", "Hulu", "HBO M
 
 Return ONLY brands that belong to this industry — no publishers, media outlets, or unrelated companies.
 Return a JSON array of brand names in order of first appearance."""
+        elif search_type == "issue":
+            system_prompt = f"""You are a related-issues extractor for the topic "{primary_brand}". Your job is to identify related issues, topics, policies, and debates discussed in the text — NOT brands, companies, organizations, or people.
+
+Rules:
+- ONLY include issues, topics, policies, regulations, social/political debates, and related subject areas
+- Do NOT include brands, companies, organizations, or institutions (e.g., NPR, US Census Bureau, IRS, Harvard, WHO)
+- Do NOT include people's names (e.g., politicians, experts, authors)
+- Do NOT include generic terms that are too broad (e.g., "government", "economy")
+- Do NOT include the primary issue "{primary_brand}" itself
+- Preserve the exact topic name as it appears in the text
+- Return names in the order they FIRST appear in the text
+- Return ONLY a JSON array of strings, no other text
+
+Example for "property taxes": ["school funding", "homestead exemption", "tax assessment appeals", "Proposition 13", "millage rates"] — NOT ["NPR", "US Census Bureau", "Zillow", "Tax Foundation"]
+Example for "student loan forgiveness": ["income-driven repayment", "PSLF", "tuition costs", "federal borrowing limits"] — NOT ["Department of Education", "Navient", "Biden"]"""
+
+            user_prompt = f"""Extract all related issues, topics, and policy areas discussed in this text about "{primary_brand}":
+
+{response_text[:6000]}
+
+Return ONLY issues and topics — no brands, companies, organizations, or people.
+Return a JSON array of topic names in order of first appearance."""
         else:
             system_prompt = """You are a brand/company name extractor. Your job is to identify all brand names, company names, product names, and service names mentioned in the text.
 
